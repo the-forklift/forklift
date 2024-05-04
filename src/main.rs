@@ -1,8 +1,7 @@
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet},
     env,
-    fmt::Display,
-    time::Instant,
+    fmt::Debug,
 };
 
 use db_dump::{self, crates::CrateId, versions::VersionId};
@@ -51,12 +50,18 @@ impl Tree {
         }
     }
 
-    fn get_crates(&self, crates: &Crates, s: &mut String) {
-        let crate_name = crates.get(&self.id).unwrap();
-        s.push_str(&format!("{crate_name}: {}\n", self.version));
-        for i in &self.rev_deps {
-            i.get_crates(crates, s);
+    fn dbg<'a>(&'a self, crates: &'a Crates) -> impl Debug + 'a {
+        struct D<'a, 'b>(&'a Crates, &'b Tree);
+        impl<'a, 'b> Debug for D<'a, 'b> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                writeln!(f, "{}: {}", self.0[&self.1.id], self.1.version)?;
+                self.1
+                    .rev_deps
+                    .iter()
+                    .try_for_each(|x| write!(f, "{:?}", D(self.0, x)))
+            }
         }
+        D(crates, &self)
     }
 }
 
@@ -118,9 +123,6 @@ fn main() {
 
     tree.recurse(&dependencies, &versions, &mut seen);
 
-    let mut out = String::new();
-    tree.get_crates(&crates, &mut out);
-
-    println!("{out}");
+    println!("{:?}", tree.dbg(&crates));
     println!("found {} reverse dependencies!", seen.len());
 }
