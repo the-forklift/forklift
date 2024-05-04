@@ -22,3 +22,5 @@ Cargo.lock
 *~
 *.swp
 *.swo
+
+db-dump.fork
