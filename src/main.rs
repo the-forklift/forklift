@@ -1,3 +1,7 @@
+#![deny(rust_2018_idioms)]
+#![deny(clippy::pedantic)]
+#![feature(if_let_guard)]
+
 use anyhow::{anyhow, Result};
 use std::{collections::HashSet, env};
 
@@ -13,14 +17,14 @@ fn main() -> Result<()> {
         let first = out.insert(what.name.clone());
         for dep in &what.dependents {
             if first && dot {
-                println!("\t\"{}\" -- \"{}\";", what.name, &from[&dep].name);
+                println!("\t\"{}\" -- \"{}\";", what.name, &from[dep].name);
             }
-            see(out, &from[&dep], from, dot);
+            see(out, &from[dep], from, dot);
         }
     }
     let first = crates
         .values()
-        .find(|x| &*x.name == &*crate_name)
+        .find(|x| *x.name == *crate_name)
         .ok_or(anyhow!("couldnt find crate"))?;
     if let Some("dot") = env::args().nth(2).as_deref() {
         println!("graph x {{");
