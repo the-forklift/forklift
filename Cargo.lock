@@ -144,6 +144,7 @@ dependencies = [
  "raad",
  "recursive",
  "serde",
+ "serde_derive",
  "tar",
  "ureq",
 ]

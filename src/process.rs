@@ -3,7 +3,7 @@ use flate2::read::GzDecoder;
 use indicatif::{ProgressBar, ProgressStyle};
 use nohash::IntMap;
 use raad::le::{R, W};
-use serde::Deserialize;
+use serde_derive::Deserialize;
 use std::{
     collections::{
         hash_map::Entry::{Occupied, Vacant},
