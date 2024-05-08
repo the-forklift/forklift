@@ -9,7 +9,6 @@ use std::{
         hash_map::Entry::{Occupied, Vacant},
         HashSet,
     },
-    hash::BuildHasherDefault,
     io::{BufReader, Read, Write},
     ops::Deref,
 };
@@ -63,6 +62,7 @@ pub fn download() -> Result<(u64, impl Read)> {
     ))
 }
 
+#[allow(clippy::default_trait_access)]
 pub fn load(from: &mut impl Read) -> Result<Crates> {
     if from.r::<[u8; 4]>()? != *b"FORK" {
         anyhow::bail!("wrong file type");
@@ -71,7 +71,7 @@ pub fn load(from: &mut impl Read) -> Result<Crates> {
     if cc == 0 {
         anyhow::bail!("no crates");
     }
-    let mut data = IntMap::with_capacity_and_hasher(cc as _, BuildHasherDefault::default());
+    let mut data = IntMap::with_capacity_and_hasher(cc as _, Default::default());
     for _ in 0..cc {
         let k = from.r::<u32>()?;
         let n = from.r::<u8>()?;
@@ -156,12 +156,13 @@ impl Crate {
 // type Crates =
 // indexmap::IndexMap<u32, Crate, std::hash::BuildHasherDefault<nohash::NoHashHasher<u32>>>;
 
+#[allow(clippy::default_trait_access)]
 pub fn pre(file: &mut impl Read, sz: u64) -> Result<Crates> {
     // currently: 144,851 crates
-    let mut dat = IntMap::with_capacity_and_hasher(1_500_000, BuildHasherDefault::default());
+    let mut dat = IntMap::with_capacity_and_hasher(1_500_000, Default::default());
     // currently: 1117542
     // maps the version id to the crate id because dependencies.csv is dumb
-    let mut vmap = IntMap::with_capacity_and_hasher(1_500_000, BuildHasherDefault::default());
+    let mut vmap = IntMap::with_capacity_and_hasher(1_500_000, Default::default());
     let pb = ProgressBar::hidden();
     pb.set_length(sz);
     pb.set_prefix(comat::cformat!("{bold_green}Loading{reset}"));
