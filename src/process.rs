@@ -2,7 +2,8 @@ use anyhow::{anyhow, Result};
 use flate2::read::GzDecoder;
 use indicatif::{ProgressBar, ProgressStyle};
 use nohash::IntMap;
-use raad::le::*;
+use raad::le::{R, W};
+use serde_derive::Deserialize;
 use std::{
     collections::{
         hash_map::Entry::{Occupied, Vacant},
@@ -30,26 +31,24 @@ pub fn get() -> Result<Crates> {
             )?;
             load(&mut BufReader::new(x))
         }
-        Err(_) => match std::fs::File::open("db-dump.tar.gz") {
-            Ok(x) => {
-                comat::cwriteln!(
-                    std::io::stderr(),
-                    "{bold_green}{:>12}{reset} `db-dump.tar.gz`",
-                    "Preprocessing"
-                )?;
-                let len = x.metadata()?.len();
-                pre(&mut BufReader::new(x), len)
-            }
-            Err(_) => {
-                comat::cwriteln!(
-                    std::io::stderr(),
-                    "{bold_green}{:>12}{reset} `db-dump.tar.gz`",
-                    "Downloading"
-                )?;
-                let (len, mut r) = download()?;
-                pre(&mut r, len)
-            }
-        },
+        Err(_) if let Ok(x) = std::fs::File::open("db-dump.tar.gz") => {
+            comat::cwriteln!(
+                std::io::stderr(),
+                "{bold_green}{:>12}{reset} `db-dump.tar.gz`",
+                "Preprocessing"
+            )?;
+            let len = x.metadata()?.len();
+            pre(&mut BufReader::new(x), len)
+        }
+        Err(_) => {
+            comat::cwriteln!(
+                std::io::stderr(),
+                "{bold_green}{:>12}{reset} `db-dump.tar.gz`",
+                "Downloading"
+            )?;
+            let (len, mut r) = download()?;
+            pre(&mut r, len)
+        }
     }
 }
 
@@ -63,6 +62,7 @@ pub fn download() -> Result<(u64, impl Read)> {
     ))
 }
 
+#[allow(clippy::default_trait_access)]
 pub fn load(from: &mut impl Read) -> Result<Crates> {
     if from.r::<[u8; 4]>()? != *b"FORK" {
         anyhow::bail!("wrong file type");
@@ -98,6 +98,7 @@ impl std::fmt::Debug for Index {
 
 pub type Crates = IntMap<u32, Crate>;
 
+#[allow(clippy::cast_possible_truncation)]
 fn write(crates: &Crates, to: &mut impl Write) -> std::io::Result<()> {
     to.w(b"FORK")?;
     to.w(crates.len() as u32)?;
@@ -148,19 +149,20 @@ impl Crate {
                     .try_for_each(|x| write!(f, "{:?}", x.dbg(self.0)))
             }
         }
-        D(crates, &self)
+        D(crates, self)
     }
 }
 
 // type Crates =
 // indexmap::IndexMap<u32, Crate, std::hash::BuildHasherDefault<nohash::NoHashHasher<u32>>>;
 
+#[allow(clippy::default_trait_access)]
 pub fn pre(file: &mut impl Read, sz: u64) -> Result<Crates> {
     // currently: 144,851 crates
-    let mut dat = IntMap::with_capacity_and_hasher(150000, Default::default());
+    let mut dat = IntMap::with_capacity_and_hasher(1_500_000, Default::default());
     // currently: 1117542
     // maps the version id to the crate id because dependencies.csv is dumb
-    let mut vmap = IntMap::with_capacity_and_hasher(1500000, Default::default());
+    let mut vmap = IntMap::with_capacity_and_hasher(1_500_000, Default::default());
     let pb = ProgressBar::hidden();
     pb.set_length(sz);
     pb.set_prefix(comat::cformat!("{bold_green}Loading{reset}"));
@@ -187,7 +189,7 @@ pub fn pre(file: &mut impl Read, sz: u64) -> Result<Crates> {
             versions(entry, &mut vmap)?;
         } else if path.ends_with("dependencies.csv") {
             assert!(
-                vmap.len() > 0,
+                !vmap.is_empty(),
                 "order failure (dont know if this is possible)"
             );
             dependencies(&mut dat, entry, &vmap)?;
@@ -205,7 +207,7 @@ pub fn pre(file: &mut impl Read, sz: u64) -> Result<Crates> {
 }
 
 fn crates(crates: &mut Crates, r: impl Read) -> Result<()> {
-    #[derive(serde_derive::Deserialize)]
+    #[derive(Deserialize)]
     struct R {
         #[serde(rename = "id")]
         hash: u32,
@@ -228,7 +230,7 @@ fn crates(crates: &mut Crates, r: impl Read) -> Result<()> {
 }
 
 fn versions(r: impl Read, versions: &mut IntMap<u32, u32>) -> Result<()> {
-    #[derive(serde_derive::Deserialize)]
+    #[derive(Deserialize)]
     struct Version {
         #[serde(rename = "crate_id")]
         hash: u32,
@@ -245,7 +247,7 @@ fn versions(r: impl Read, versions: &mut IntMap<u32, u32>) -> Result<()> {
 }
 
 fn dependencies(crates: &mut Crates, r: impl Read, versions: &IntMap<u32, u32>) -> Result<()> {
-    #[derive(serde_derive::Deserialize)]
+    #[derive(Deserialize)]
     struct Dep {
         // #[serde(rename = "req")]
         // version: semver::VersionReq,
