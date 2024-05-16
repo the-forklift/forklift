@@ -1,11 +1,12 @@
 #![deny(rust_2018_idioms)]
 #![deny(clippy::pedantic)]
-#![feature(if_let_guard)]
+#![feature(if_let_guard, iter_map_windows)]
 
 use anyhow::{anyhow, Result};
 use std::{collections::HashSet, env};
 
 use crate::process::{Crate, Crates};
+mod joystick;
 mod process;
 
 fn main() -> Result<()> {
