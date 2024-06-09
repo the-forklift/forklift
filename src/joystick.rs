@@ -4,15 +4,16 @@ use std::{error::Error, fmt::Display};
 
 #[derive(Debug)]
 pub struct Query {
-    krate: Box<str>,
+    package: Box<str>,
+    conditions: Vec<WhereClauses>,
 }
 
 impl Query {
     pub fn parse(&self) -> Result<()> {
-        crate::fetch::init(&self.krate)
+        crate::fetch::init(&self.package)
     }
 }
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct QueryAccumulator(HashMap<Button, Panel>);
 
 impl QueryAccumulator {
@@ -36,16 +37,29 @@ impl QueryAccumulator {
 
         QueryAccumulator(chars)
     }
+
+    fn parse_where(&self) -> Vec<WhereClauses> {
+        let Some(conditions) = self.0.get(&Button::Where) else {
+            return vec![];
+        };
+        match conditions {
+            _ => todo!(),
+        }
+    }
 }
 
 impl TryFrom<QueryAccumulator> for Query {
     type Error = InvalidQueryError;
     fn try_from(accumulator: QueryAccumulator) -> Result<Self, InvalidQueryError> {
-        let Some(krate) = accumulator.0.get(&Button::List) else {
+        let Some(krate) = accumulator.0.get(&Button::Lift) else {
             return Err(InvalidQueryError {});
         };
+
+        let conditions = accumulator.parse_where();
+
         Ok(Self {
-            krate: krate.param_as_string().into(),
+            package: krate.param_as_string().into(),
+            conditions,
         })
     }
 }
@@ -61,12 +75,19 @@ impl Display for InvalidQueryError {
     }
 }
 
+#[derive(Debug, Clone)]
+struct WhereClauses {
+    oredicate: Predicate,
+    condition: Condition,
+    parameter: Panel,
+}
+
 #[derive(Clone, Debug)]
 enum Panel {
     Button(Button),
     Crate(String),
+    WhereClauses(Vec<WhereClauses>),
 }
-
 impl Panel {
     fn try_from_keyword(keyword: &str) -> Option<Self> {
         Button::try_from_keyword(keyword)
@@ -84,14 +105,26 @@ impl Panel {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Button {
-    List,
+    Lift,
+    Where,
 }
 
 impl Button {
     fn try_from_keyword(keyword: &str) -> Option<Self> {
         match keyword {
-            "list" | "LIST" => Some(Button::List),
+            "list" | "LIST" => Some(Button::Lift),
+            "where" | "WHERE" => Some(Button::Where),
             _ => None,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum Predicate {
+    Version,
+}
+
+#[derive(Debug, Clone)]
+pub enum Condition {
+    Equals,
 }
