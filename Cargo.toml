@@ -15,6 +15,7 @@ indicatif = { version = "0.17.8", default-features = false }
 nohash = "0.2.0"
 raad = "0.1.1"
 recursive = { version = "0.1.1", default-features = false }
+semver = "1.0.23"
 serde = { version = "1.0.200", default-features = false, features = ["derive"] }
 serde_derive = { version = "1.0.200", default-features = false }
 tar = { version = "0.4.40", default-features = false }

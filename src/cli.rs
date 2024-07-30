@@ -30,6 +30,6 @@ pub fn init() -> Result<()> {
             let accumulator: Query = QueryAccumulator::from_input(&q).try_into()?;
             accumulator.parse()
         }
-        _ => todo!(),
+        _ => todo!("no query"),
     }
 }

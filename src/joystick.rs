@@ -1,11 +1,13 @@
+use crate::conditions::WhereClause;
 use anyhow::Result;
+use semver::VersionReq;
 use std::collections::HashMap;
 use std::{error::Error, fmt::Display};
 
 #[derive(Debug)]
 pub struct Query {
     package: Box<str>,
-    conditions: Vec<WhereClauses>,
+    conditions: Option<WhereClause>,
 }
 
 impl Query {
@@ -14,53 +16,67 @@ impl Query {
     }
 }
 #[derive(Default, Debug)]
-pub struct QueryAccumulator(HashMap<Button, Panel>);
+pub struct QueryAccumulator<'a>(HashMap<Button, Panel<'a>>);
 
-impl QueryAccumulator {
-    pub fn from_input(input: &str) -> Self {
-        let chars = input
-            .split_whitespace()
-            .map_windows(|[keyword, param]| {
-                match (
-                    Panel::try_from_keyword(keyword),
-                    Panel::try_from_keyword(param),
-                ) {
-                    (Some(Panel::Button(b)), Some(ref param @ Panel::Crate(_))) => {
-                        Some((b, param.clone()))
-                    }
-                    (Some(Panel::Crate(_)), Some(Panel::Button(b))) => None,
-                    _ => todo!(),
+impl<'a> QueryAccumulator<'a> {
+    pub fn from_input(input: &'a str) -> Self {
+        let (mut chars, Some(button), mut collector) = input.split_whitespace().fold(
+            (HashMap::<Button, Panel<'a>>::new(), None, vec![]),
+            |(mut acc, button, mut collector), token| match (Panel::try_from_keyword(token), button)
+            {
+                (Some(Panel::Button(kw)), Some(but)) if !collector.is_empty() => {
+                    let col = core::mem::take(&mut collector);
+                    acc.insert(but, Panel::TokenValue(col));
+                    (acc, Some(kw), vec![])
                 }
-            })
-            .flatten()
-            .collect();
+                (Some(Panel::Button(kw)), _) => (acc, Some(kw), collector),
+                (None, _) => {
+                    collector.push(token);
+                    (acc, button, collector)
+                }
+                _ => unreachable!(),
+            },
+        ) else {
+            todo!()
+        };
+
+        if !collector.is_empty() {
+            let col = core::mem::take(&mut collector);
+            chars.insert(button, Panel::TokenValue(col));
+        }
 
         QueryAccumulator(chars)
     }
 
-    fn parse_where(&self) -> Vec<WhereClauses> {
-        let Some(conditions) = self.0.get(&Button::Where) else {
-            return vec![];
-        };
-        match conditions {
-            _ => todo!(),
+    pub fn try_get(&self, key: Button) -> Result<&Panel<'a>, InvalidQueryError> {
+        if let Some(entry) = self.0.get(&key) {
+            Ok(entry)
+        } else {
+            Err(InvalidQueryError {})
         }
     }
 }
 
-impl TryFrom<QueryAccumulator> for Query {
+impl TryFrom<QueryAccumulator<'_>> for Query {
     type Error = InvalidQueryError;
-    fn try_from(accumulator: QueryAccumulator) -> Result<Self, InvalidQueryError> {
-        let Some(krate) = accumulator.0.get(&Button::Lift) else {
+    fn try_from(accumulator: QueryAccumulator<'_>) -> Result<Self, InvalidQueryError> {
+        let Some(Panel::TokenValue(krate)) = accumulator.0.get(&Button::Lift) else {
             return Err(InvalidQueryError {});
         };
 
-        let conditions = accumulator.parse_where();
+        let conditions = accumulator
+            .try_get(Button::Where)
+            .map(|clauses| WhereClause::try_from_tokens(clauses).unwrap())
+            .ok();
 
-        Ok(Self {
-            package: krate.param_as_string().into(),
-            conditions,
-        })
+        if krate.len() == 1 {
+            Ok(Self {
+                package: krate[0].into(),
+                conditions,
+            })
+        } else {
+            todo!()
+        }
     }
 }
 
@@ -75,36 +91,20 @@ impl Display for InvalidQueryError {
     }
 }
 
-#[derive(Debug, Clone)]
-struct WhereClauses {
-    oredicate: Predicate,
-    condition: Condition,
-    parameter: Panel,
-}
-
 #[derive(Clone, Debug)]
-enum Panel {
+pub enum Panel<'a> {
     Button(Button),
-    Crate(String),
-    WhereClauses(Vec<WhereClauses>),
+    TokenValue(Vec<&'a str>),
 }
-impl Panel {
-    fn try_from_keyword(keyword: &str) -> Option<Self> {
-        Button::try_from_keyword(keyword)
-            .map(Self::Button)
-            .or_else(|| Some(Panel::Crate(keyword.to_string())))
-    }
 
-    fn param_as_string(&self) -> &str {
-        match self {
-            Panel::Crate(s) => s,
-            _ => unreachable!(),
-        }
+impl Panel<'_> {
+    fn try_from_keyword(keyword: &str) -> Option<Self> {
+        Button::try_from_keyword(keyword).map(Self::Button)
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum Button {
+pub enum Button {
     Lift,
     Where,
 }
@@ -112,19 +112,25 @@ enum Button {
 impl Button {
     fn try_from_keyword(keyword: &str) -> Option<Self> {
         match keyword {
-            "list" | "LIST" => Some(Button::Lift),
+            "lift" | "LIFT" => Some(Button::Lift),
             "where" | "WHERE" => Some(Button::Where),
             _ => None,
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Predicate {
-    Version,
+#[derive(Clone, Debug)]
+pub enum PanelValue {
+    Crate(String),
+    Semver(VersionReq),
 }
 
-#[derive(Debug, Clone)]
-pub enum Condition {
-    Equals,
+impl PanelValue {
+    pub fn try_from_token(token: &str) -> Self {
+        if let Ok(constraint) = VersionReq::parse(token) {
+            Self::Semver(constraint)
+        } else {
+            Self::Crate(token.to_string())
+        }
+    }
 }
