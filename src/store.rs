@@ -1,84 +1,60 @@
-use serde::Deserialize;
-use std::io::Read;
-use csv::Reader;
 use chrono::NaiveDateTime;
-use std::collections::BTreeSet;
-
-#[derive(Clone, Copy, Debug)]
-pub enum CDV { 
-    Crates,
-    Dependencies,
-    Versions
-}
-
-
-#[derive(Debug)]
+use serde::Deserialize;
+use sicht::SichtMap;
+use std::cell::RefCell;
+use std::rc::Rc;
+#[derive(Debug, Default)]
 pub struct Crate {
     krate: Kiste,
-    dependencies: BTreeSet<Crate>,
+    pub dependencies: SichtMap<String, u32, Skid>,
 }
 
 impl Crate {
     pub fn new(krate: Kiste) -> Self {
         Self {
             krate,
-            dependencies: BTreeSet::default()
+            dependencies: SichtMap::default(),
         }
     }
 
+    pub fn new_as_cell(krate: Kiste) -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Self::new(krate)))
+    }
 
-}
-
-
-impl CDV {
-    pub fn handle(&self, entry: impl Read)-> Vec<Crate>{
-        match self {
-            Self::Crates => {
-                
-                
-                
-                
-            },
-            Self::Dependencies => {
-                let dependencies: Vec<Depencil> = Reader::from_reader(entry).deserialize().flat_map(|x| x).collect();
-            },
-            Self::Versions => {
-                let versions: Vec<Lesart> = Reader::from_reader(entry).deserialize().flat_map(|x| x).collect();
-            },
-        }
-
-        todo!()
+    pub fn add_dependency(&mut self, key: u32, dependency: Rc<RefCell<Crate>>) {
+        self.dependencies
+            .insert_with_cokey(key, Skid::new_with_dependency(dependency));
     }
 }
 
 pub enum SchemaElements {
     Kiste(Kiste),
     Depencil(Depencil),
-    Lesart(Lesart)
+    Lesart(Lesart),
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct Kiste {
     created_at: String,
     description: String,
     documentation: String,
     homepage: String,
-    id: u32,
+    pub id: u32,
     max_features: String,
     max_upload_size: Option<u32>,
     pub name: String,
     readme: String,
     repository: String,
-    updated_at: String
+    updated_at: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Depencil {
-    crate_id: u32,
+    pub crate_id: u32,
     default_features: bool,
     explicit_name: String,
     features: Vec<String>,
-    id: u32,
+    pub id: u32,
     kind: u32,
     optional: bool,
     req: String,
@@ -88,7 +64,7 @@ pub struct Depencil {
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Lesart {
-    bin_names: Vec<String>, 
+    bin_names: Vec<String>,
     checksum: String,
     crate_id: u32,
     crate_size: u32,
@@ -103,5 +79,27 @@ pub struct Lesart {
     published_by: NaiveDateTime,
     rust_version: String,
     updated_at: NaiveDateTime,
-    yanked: bool
+    yanked: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Skid {
+    dependency: Rc<RefCell<Crate>>,
+    version: Option<String>,
+}
+
+impl Skid {
+    pub fn new(dependency: Rc<RefCell<Crate>>, version: String) -> Self {
+        Self {
+            dependency,
+            version: Some(version),
+        }
+    }
+
+    pub fn new_with_dependency(dependency: Rc<RefCell<Crate>>) -> Self {
+        Self {
+            dependency,
+            version: None,
+        }
+    }
 }

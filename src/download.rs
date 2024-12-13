@@ -1,22 +1,25 @@
-use anyhow::Result;
-use crate::joystick::Query;
 use crate::fs::Carriage;
+use crate::joystick::Query;
 use crate::store::Crate;
-use std::{fs::File, io::Read};
+use anyhow::Result;
 
 pub struct Engine {
-    krate: Crate,
     query: Query,
 }
 
 impl Engine {
-
-    pub fn get(&self) -> Result<Crate> {
-    let mut file = Carriage::unarchive("db-dump.tar.gz")?;
-    dbg!(&file);
-    todo!()
+    pub fn new(query: Query) -> Self {
+        Engine { query }
     }
 
+    pub fn run(&self) -> Result<Crate> {
+        let file = Carriage::unarchive("db-dump.tar.gz")?;
+        todo!()
+    }
+
+    pub fn process_output(&self) {
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -26,11 +29,9 @@ mod tests {
     #[test]
     pub fn engine_ignites() {
         let engine = Engine {
-            krate: Crate::new("foo"),
-            query: Query::default()
+            query: Query::default(),
         };
 
         dbg!(engine.get());
-
     }
 }
