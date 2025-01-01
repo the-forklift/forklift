@@ -2,21 +2,19 @@ use crate::store::{Crate, Depencil, Kiste, Lesart};
 use csv::Reader;
 use flate2::read::GzDecoder;
 use sicht::{selector::Oder, SichtMap};
-use std::cell::RefCell;
+use std::ptr::NonNull;
 use std::fs::File;
-use std::io::Read;
 use std::path::Path;
-use std::rc::Rc;
 use tar::Archive;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Carriage {
-    pub map: SichtMap<String, u32, Rc<RefCell<Crate>>>,
+    pub map: SichtMap<String, u32, Crate>,
     unresolved: Vec<u32>,
 }
 
-impl Carriage {
-    pub fn new(map: SichtMap<String, u32, Rc<RefCell<Crate>>>) -> Self {
+impl Carriage{
+    pub fn new(map: SichtMap<String, u32, Crate>) -> Self {
         Self {
             map,
             unresolved: Vec::default(),
@@ -39,7 +37,7 @@ impl Carriage {
                                 .deserialize::<Kiste>()
                                 .flat_map(|cr| {
                                     cr.map(|c| {
-                                        (Oder::new(c.name.clone(), c.id), Crate::new_as_cell(c))
+                                        (Oder::new(c.name.clone(), c.id), Crate::new(c))
                                     })
                                 })
                                 .collect();
@@ -52,16 +50,16 @@ impl Carriage {
                             Reader::from_reader(entry)
                                 .deserialize::<Depencil>()
                                 .for_each(|dep| {
-                                    if let Ok(d) = dep {
-                                        carr.add_dependency(&d);
+                                    if let Ok(ref d) = dep {
+                                        carr.add_dependency(d.to_owned());
                                     }
                                 });
                         }
                         p if p.ends_with("versions.csv")
-                            && let Some(ref mut carr) = carriage =>
+                            && let Some(ref mut carr) =  carriage  =>
                         {
                             stored_entry = Some(entry);
-                        }
+                        },
                         _ => {}
                     }
                 }
@@ -83,28 +81,29 @@ impl Carriage {
         }
     }
 
-    pub fn add_dependency(&mut self, dependency: &Depencil) {
-        let crate_id = dependency.crate_id;
-        let resolved = self.resolve_dependency(dependency);
-        let kisten = self
-            .map
-            .get_with_outer_key_mut(&Oder::new_right(crate_id))
-            .unwrap();
-        kisten.borrow_mut().add_dependency(dependency.id, resolved);
+    pub fn add_dependency(&mut self, dependency: Depencil) {
+        let dep = {
+            let Some(r) = self.resolve_dependency(&dependency) else { return; };
+
+            NonNull::new(r as *const _ as *mut Crate).unwrap()
+        };
+        if let Some(cr) = self.map.get_with_outer_key_mut(&dependency.crate_id) {
+            cr.add_dependency(dependency.id, dep);
+        } else {
+
+            todo!()
+        }
     }
 
-    fn resolve_dependency(&self, dependency: &Depencil) -> Rc<RefCell<Crate>> {
-        self.map
-            .into_iter()
-            .find(|(index, kr)| match index {
-                Oder {
-                    left: _,
-                    right: Some(id),
-                } => *id == dependency.id,
-                _ => todo!(),
-            })
-            .map_or_else(|| todo!(), |(_, kr)| Rc::clone(kr))
+    pub fn resolve_dependency(&mut self, dependency: &Depencil) -> Option<&Crate>{
+        if let Some(k) = self.map.get_with_outer_key_mut(&dependency.crate_id) {
+            Some(k)
+        } else {
+            self.unresolved.push(dependency.crate_id);
+            None
+        }
     }
+
 
     pub fn add_version(&mut self, version: &Lesart) {}
 }

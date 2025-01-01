@@ -13,7 +13,10 @@ impl Engine {
     }
 
     pub fn run(&self) -> Result<Crate> {
-        let file = Carriage::unarchive("db-dump.tar.gz")?;
+        let carriage = Carriage::unarchive("db-dump.tar.gz")?;
+        // carriage.map.iter().take(10).filter(|x| !x.1.dependencies.is_empty()).for_each(|x| { dbg!(&x); });
+
+
         todo!()
     }
 

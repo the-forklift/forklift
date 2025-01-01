@@ -1,11 +1,11 @@
 use chrono::NaiveDateTime;
 use serde::Deserialize;
 use sicht::SichtMap;
-use std::cell::RefCell;
-use std::rc::Rc;
-#[derive(Debug, Default)]
+use std::ptr::NonNull;
+
+#[derive(Debug, Clone)]
 pub struct Crate {
-    krate: Kiste,
+    pub krate: Kiste,
     pub dependencies: SichtMap<String, u32, Skid>,
 }
 
@@ -13,15 +13,11 @@ impl Crate {
     pub fn new(krate: Kiste) -> Self {
         Self {
             krate,
-            dependencies: SichtMap::default(),
+            dependencies: SichtMap::new(),
         }
     }
 
-    pub fn new_as_cell(krate: Kiste) -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(Self::new(krate)))
-    }
-
-    pub fn add_dependency(&mut self, key: u32, dependency: Rc<RefCell<Crate>>) {
+    pub fn add_dependency(&mut self, key: u32, dependency: NonNull<Crate>) {
         self.dependencies
             .insert_with_cokey(key, Skid::new_with_dependency(dependency));
     }
@@ -35,7 +31,7 @@ pub enum SchemaElements {
 
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct Kiste {
-    created_at: String,
+    pub created_at: String,
     description: String,
     documentation: String,
     homepage: String,
@@ -48,15 +44,15 @@ pub struct Kiste {
     updated_at: String,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Clone)]
 pub struct Depencil {
     pub crate_id: u32,
-    default_features: bool,
-    explicit_name: String,
-    features: Vec<String>,
+    default_features: Option<String>,
+    explicit_name: Option<String>,
+    features: String,
     pub id: u32,
     kind: u32,
-    optional: bool,
+    optional: String,
     req: String,
     target: String,
     version_id: u32,
@@ -82,21 +78,21 @@ pub struct Lesart {
     yanked: bool,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Skid {
-    dependency: Rc<RefCell<Crate>>,
+    dependency: NonNull<Crate>, 
     version: Option<String>,
 }
 
 impl Skid {
-    pub fn new(dependency: Rc<RefCell<Crate>>, version: String) -> Self {
+    pub fn new(dependency: NonNull<Crate>, version: String) -> Self{
         Self {
             dependency,
             version: Some(version),
         }
     }
 
-    pub fn new_with_dependency(dependency: Rc<RefCell<Crate>>) -> Self {
+    pub fn new_with_dependency(dependency: NonNull<Crate>) -> Self {
         Self {
             dependency,
             version: None,
