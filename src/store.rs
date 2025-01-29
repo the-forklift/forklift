@@ -1,14 +1,11 @@
-use chrono::NaiveDateTime;
 use serde::Deserialize;
 use sicht::SichtMap;
 use std::ptr::NonNull;
-
 #[derive(Debug, Clone)]
 pub struct Crate {
     pub krate: Kiste,
     pub dependencies: SichtMap<String, u32, Skid>,
 }
-
 impl Crate {
     pub fn new(krate: Kiste) -> Self {
         Self {
@@ -21,12 +18,6 @@ impl Crate {
         self.dependencies
             .insert_with_cokey(key, Skid::new_with_dependency(dependency));
     }
-}
-
-pub enum SchemaElements {
-    Kiste(Kiste),
-    Depencil(Depencil),
-    Lesart(Lesart),
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -55,37 +46,37 @@ pub struct Depencil {
     optional: String,
     req: String,
     target: String,
-    version_id: u32,
+    pub version_id: u32,
 }
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Lesart {
-    bin_names: Vec<String>,
+    bin_names: String,
     checksum: String,
-    crate_id: u32,
+    pub crate_id: u32,
     crate_size: u32,
-    created_at: NaiveDateTime,
+    created_at: String,
     downloads: u32,
-    features: Vec<String>,
-    has_lib: bool,
-    id: u32,
+    features: String,
+    has_lib: String,
+    pub id: u32,
     license: String,
     links: String,
     num: String,
-    published_by: NaiveDateTime,
+    published_by: String,
     rust_version: String,
-    updated_at: NaiveDateTime,
-    yanked: bool,
+    updated_at: String,
+    yanked: String,
 }
 
 #[derive(Clone, Debug)]
 pub struct Skid {
-    dependency: NonNull<Crate>, 
+    dependency: NonNull<Crate>,
     version: Option<String>,
 }
 
 impl Skid {
-    pub fn new(dependency: NonNull<Crate>, version: String) -> Self{
+    pub fn new(dependency: NonNull<Crate>, version: String) -> Self {
         Self {
             dependency,
             version: Some(version),
