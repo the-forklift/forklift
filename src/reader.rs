@@ -3,36 +3,6 @@ use std::io::Read;
 use csv::Reader;
 use chrono::NaiveDateTime;
 
-#[derive(Clone, Copy, Debug)]
-pub enum CDV { 
-    Crates,
-    Dependencies,
-    Versions
-}
-
-impl CDV {
-    pub fn handle(&self, entry: impl Read)-> Vec<SchemaElements>{
-        match self {
-            Self::Crates => {
-                let crates: Vec<Kiste> = Reader::from_reader(entry).deserialize().flat_map(|x| x).collect();
-            },
-            Self::Dependencies => {
-                let dependencies: Vec<Depencil> = Reader::from_reader(entry).deserialize().flat_map(|x| x).collect();
-            },
-            Self::Versions => {
-                let versions: Vec<Lesart> = Reader::from_reader(entry).deserialize().flat_map(|x| x).collect();
-            },
-        }
-
-        todo!()
-    }
-}
-
-pub enum SchemaElements {
-    Kiste(Kiste),
-    Depencil(Depencil),
-    Lesart(Lesart)
-}
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Kiste {

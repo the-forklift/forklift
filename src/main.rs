@@ -7,10 +7,8 @@ use anyhow::Result;
 mod cli;
 mod conditions;
 mod download;
-mod fetch;
 mod fs;
 mod joystick;
-mod process;
 mod store;
 
 fn main() -> Result<()> {

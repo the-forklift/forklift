@@ -18,10 +18,10 @@ pub fn init() -> Result<()> {
     let args = Args::parse();
     match args {
         Args {
-            package: Some(k),
+            package: Some(_),
             interactive: false,
             query: None,
-        } => crate::fetch::init(&k),
+        } => todo!(),
         Args {
             package: None,
             interactive: false,
