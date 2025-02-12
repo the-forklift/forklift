@@ -1,5 +1,5 @@
 use crate::conditions::WhereClause;
-use crate::download::Engine;
+use crate::download::Ignition;
 use anyhow::Result;
 use semver::VersionReq;
 use std::collections::HashMap;
@@ -13,9 +13,9 @@ pub struct Query {
 
 impl Query {
     pub fn parse(self) -> Result<()> {
-        let engine = Engine::new(self);
-        let krate = engine.run()?;
-        engine.process_output();
+        let ignition = Ignition::init(self)?;
+        let krate = ignition.run()?;
+        ignition.process_output();
         Ok(())
     }
 }

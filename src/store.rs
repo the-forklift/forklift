@@ -1,7 +1,8 @@
 use serde::Deserialize;
 use sicht::SichtMap;
 use std::ptr::NonNull;
-#[derive(Debug, Clone)]
+use serde::Deserializer;
+#[derive(Debug, Clone, Deserialize)]
 pub struct Crate {
     pub krate: Kiste,
     pub dependencies: SichtMap<String, u32, Skid>,
@@ -88,5 +89,16 @@ impl Skid {
             dependency,
             version: None,
         }
+    }
+}
+
+
+impl<'de> Deserialize<'de> for Skid {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> 
+        where
+            D: Deserializer<'de>
+    {
+        todo!()
+
     }
 }

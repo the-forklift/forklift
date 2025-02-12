@@ -6,10 +6,12 @@ use anyhow::Result;
 
 mod cli;
 mod conditions;
+mod crusher;
 mod download;
 mod fs;
 mod joystick;
 mod store;
+
 
 fn main() -> Result<()> {
     cli::init()

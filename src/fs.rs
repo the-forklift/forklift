@@ -1,14 +1,18 @@
 use crate::store::{Crate, Depencil, Kiste, Lesart};
+use crate::crusher::Crusher;
 use csv::Reader;
 use flate2::read::GzDecoder;
 use sicht::{selector::Oder, SichtMap};
 use std::collections::BTreeMap;
-use std::fs::File;
-use std::path::Path;
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
 use tar::Archive;
+use anyhow::Result;
+use serde::Deserialize;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct Carriage {
     pub map: SichtMap<String, u32, Crate>,
     unresolved: Vec<u32>,
@@ -127,3 +131,33 @@ impl Carriage {
 
     pub fn add_version(&mut self, version: &Lesart) {}
 }
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Mast {
+    path: PathBuf,
+}
+
+impl Mast {
+    pub fn load<P: AsRef<Path>>(&self, load_path: P) -> Result<Carriage> {
+        if let Ok(mut file) = OpenOptions::new().read(true).open("lager.fork") {
+            let mut buffer = Vec::new();
+            let _ = file.read_to_end(&mut buffer)?;
+           Self::uncrush(buffer)
+        } else {
+            let contents = Carriage::unarchive(load_path);
+            self.store_contents();
+            contents
+        }
+    }
+
+    pub fn store_contents(&self) -> Result<()> {
+        let file = OpenOptions::new().write(true).create(true).open("lager.fork")?;
+        ron::ser::to_writer(file, &mashed)?;
+        Ok(())
+
+    }
+
+}
+
+
+

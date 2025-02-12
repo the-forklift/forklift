@@ -1,19 +1,36 @@
 use crate::fs::Carriage;
 use crate::joystick::Query;
 use crate::store::Crate;
+use crate::fs::Mast;
 use anyhow::Result;
+
+pub struct Ignition {
+    query: Query 
+}
 
 pub struct Engine {
     query: Query,
+    carriage: Carriage,
 }
 
+impl Ignition {
+
+    pub fn init(query: Query) -> Result<Engine> {
+        let carriage = Mast::load("db-dump.tar.gz")?;
+        Ok(Engine::new(query, carriage))
+    }
+    
+}
+        
 impl Engine {
-    pub fn new(query: Query) -> Self {
-        Engine { query }
+    pub fn new(query: Query, carriage: Carriage) -> Self {
+        Engine { 
+            query, 
+            carriage,
+        }
     }
 
     pub fn run(&self) -> Result<Crate> {
-        let carriage = Carriage::unarchive("db-dump.tar.gz")?;
         todo!()
     }
 
