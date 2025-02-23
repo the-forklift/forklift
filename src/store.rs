@@ -1,8 +1,7 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sicht::SichtMap;
-use std::ptr::NonNull;
-use serde::Deserializer;
-#[derive(Debug, Clone, Deserialize)]
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Crate {
     pub krate: Kiste,
     pub dependencies: SichtMap<String, u32, Skid>,
@@ -15,13 +14,13 @@ impl Crate {
         }
     }
 
-    pub fn add_dependency(&mut self, key: u32, dependency: NonNull<Crate>) {
+    pub fn add_dependency(&mut self, key: u32, krate_name: String) {
         self.dependencies
-            .insert_with_cokey(key, Skid::new_with_dependency(dependency));
+            .insert_with_both_keys(krate_name, key, Skid::new_with_dependency(key));
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Kiste {
     pub created_at: String,
     description: String,
@@ -36,7 +35,7 @@ pub struct Kiste {
     updated_at: String,
 }
 
-#[derive(Debug, Default, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Depencil {
     pub crate_id: u32,
     default_features: Option<String>,
@@ -70,35 +69,24 @@ pub struct Lesart {
     yanked: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Skid {
-    dependency: NonNull<Crate>,
+    dependency: u32,
     version: Option<String>,
 }
 
 impl Skid {
-    pub fn new(dependency: NonNull<Crate>, version: String) -> Self {
+    pub fn new(dependency: u32, version: String) -> Self {
         Self {
             dependency,
             version: Some(version),
         }
     }
 
-    pub fn new_with_dependency(dependency: NonNull<Crate>) -> Self {
+    pub fn new_with_dependency(dependency: u32) -> Self {
         Self {
             dependency,
             version: None,
         }
-    }
-}
-
-
-impl<'de> Deserialize<'de> for Skid {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> 
-        where
-            D: Deserializer<'de>
-    {
-        todo!()
-
     }
 }

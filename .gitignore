@@ -17,7 +17,7 @@ target/
 *.swp
 *.swo
 
-db-dump.fork
+lager.fork
 
 # Intermediate File (temporary use, may be removed later)
 *.dot

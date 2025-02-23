@@ -1,21 +1,20 @@
-use crate::store::{Crate, Depencil, Kiste, Lesart};
 use crate::crusher::Crusher;
+use crate::store::{Crate, Depencil, Kiste, Lesart};
+use anyhow::Result;
 use csv::Reader;
 use flate2::read::GzDecoder;
-use sicht::{selector::Oder, SichtMap};
+use serde::{Deserialize, Serialize};
+use sicht::{SichtMap, selector::Oder};
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
-use std::ptr::NonNull;
+use std::io::Read;
+use std::path::Path;
 use tar::Archive;
-use anyhow::Result;
-use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Carriage {
     pub map: SichtMap<String, u32, Crate>,
-    unresolved: Vec<u32>,
+    unresolved: Vec<(u32, u32)>,
     dependency_lookup: BTreeMap<u32, u32>,
     crate_lookup: BTreeMap<u32, String>,
 }
@@ -76,17 +75,17 @@ impl Carriage {
                                 Reader::from_reader(entry)
                                     .deserialize::<Depencil>()
                                     .enumerate()
-                                    .for_each(|(k, ver)| {
+                                    .for_each(|(_, ver)| {
                                         if let Ok(ref v) = ver
                                             && let Some(en) = carr.dependency_lookup.get(&v.id)
                                             && let Some(cr) = carr.crate_lookup.get(&v.crate_id)
-                                            && let Some(dep_name) = carr.crate_lookup.get(en)
+                                            && let Some(dep) = carr.crate_lookup.get(&v.id)
                                         {
                                             carr.add_dependency(
                                                 *en,
+                                                dep.to_string(),
                                                 v.crate_id,
                                                 cr.to_string(),
-                                                dep_name.to_string(),
                                             );
                                         }
                                     });
@@ -102,62 +101,47 @@ impl Carriage {
         carriage.ok_or_else(|| todo!())
     }
 
-    pub fn add_dependency(&mut self, krate: u32, dependency: u32, name: String, dep_name: String) {
-        let dep = {
-            let Some(r) = self.resolve_dependency(dep_name, dependency) else {
-                return;
-            };
-            NonNull::new(std::ptr::from_ref(r).cast_mut()).unwrap()
-        };
-
-        if let Some(cr) = self.map.get_with_both_keys_mut(&Oder::new(name, krate)) {
-            cr.add_dependency(krate, dep);
-        } else {
-            todo!()
-        }
-    }
-
-    pub fn resolve_dependency(&mut self, name: String, dependency: u32) -> Option<&Crate> {
-        if let Some(k) = self
+    pub fn add_dependency(
+        &mut self,
+        krate: u32,
+        krate_name: String,
+        dependency: u32,
+        dependency_name: String,
+    ) {
+        if let Some(cr) = self
             .map
-            .get_with_both_keys_mut(&Oder::new(name, dependency))
+            .get_with_both_keys_mut(&Oder::new(krate_name, krate))
         {
-            Some(k)
+            cr.add_dependency(dependency, dependency_name);
         } else {
-            self.unresolved.push(dependency);
-            None
+            self.unresolved.push((krate, dependency));
         }
     }
-
-    pub fn add_version(&mut self, version: &Lesart) {}
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct Mast {
-    path: PathBuf,
-}
+pub struct Mast {}
 
 impl Mast {
-    pub fn load<P: AsRef<Path>>(&self, load_path: P) -> Result<Carriage> {
+    pub fn load<P: AsRef<Path>>(load_path: P) -> Result<Carriage> {
         if let Ok(mut file) = OpenOptions::new().read(true).open("lager.fork") {
             let mut buffer = Vec::new();
             let _ = file.read_to_end(&mut buffer)?;
-           Self::uncrush(buffer)
+            Self::uncrush(buffer)
         } else {
-            let contents = Carriage::unarchive(load_path);
-            self.store_contents();
-            contents
+            let contents = Carriage::unarchive(load_path)?;
+            let _ = Self::store_contents(&contents);
+            Ok(contents)
         }
     }
 
-    pub fn store_contents(&self) -> Result<()> {
-        let file = OpenOptions::new().write(true).create(true).open("lager.fork")?;
-        ron::ser::to_writer(file, &mashed)?;
+    pub fn store_contents(contents: &Carriage) -> Result<()> {
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open("lager.fork")?;
+        ron::ser::to_writer(file, &contents)?;
         Ok(())
-
     }
-
 }
-
-
-

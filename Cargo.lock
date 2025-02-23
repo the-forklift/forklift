@@ -355,7 +355,10 @@ dependencies = [
 [[package]]
 name = "sicht"
 version = "0.1.0"
-source = "git+https://github.com/Dylan-DPC/sicht#8f8f3b5fc7520ef4fc0f126c10b8469a7fff506d"
+dependencies = [
+ "serde",
+ "serde_derive",
+]
 
 [[package]]
 name = "strsim"

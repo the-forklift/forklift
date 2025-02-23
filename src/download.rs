@@ -1,11 +1,11 @@
 use crate::fs::Carriage;
+use crate::fs::Mast;
 use crate::joystick::Query;
 use crate::store::Crate;
-use crate::fs::Mast;
 use anyhow::Result;
 
 pub struct Ignition {
-    query: Query 
+    query: Query,
 }
 
 pub struct Engine {
@@ -14,20 +14,15 @@ pub struct Engine {
 }
 
 impl Ignition {
-
     pub fn init(query: Query) -> Result<Engine> {
         let carriage = Mast::load("db-dump.tar.gz")?;
         Ok(Engine::new(query, carriage))
     }
-    
 }
-        
+
 impl Engine {
     pub fn new(query: Query, carriage: Carriage) -> Self {
-        Engine { 
-            query, 
-            carriage,
-        }
+        Engine { query, carriage }
     }
 
     pub fn run(&self) -> Result<Crate> {

@@ -12,7 +12,6 @@ mod fs;
 mod joystick;
 mod store;
 
-
 fn main() -> Result<()> {
     cli::init()
 }
