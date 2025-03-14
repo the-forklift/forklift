@@ -46,11 +46,13 @@ impl Carriage {
                                 let mut lookup = BTreeMap::default();
                                 let kisten = Reader::from_reader(entry)
                                     .deserialize::<Kiste>()
-                                    .flat_map(|cr| {
-                                        cr.map(|c| {
+                                    .map(|cr| {
+                                        if let Ok(c) = cr {
                                             lookup.insert(c.id, c.name.clone());
                                             (Oder::new(c.name.clone(), c.id), Crate::new(c))
-                                        })
+                                        } else {
+                                            todo!()
+                                        }
                                     })
                                     .collect();
 
@@ -63,7 +65,10 @@ impl Carriage {
                                 Reader::from_reader(entry).deserialize::<Lesart>().for_each(
                                     |dep| {
                                         if let Ok(ref d) = dep {
-                                            carr.dependency_lookup.insert(d.id, d.crate_id);
+                                            carr.dependency_lookup
+                                                .insert(d.crate_id.unwrap(), d.id);
+                                        } else {
+                                            todo!()
                                         }
                                     },
                                 );
@@ -74,10 +79,10 @@ impl Carriage {
                             {
                                 Reader::from_reader(entry)
                                     .deserialize::<Depencil>()
-                                    .enumerate()
-                                    .for_each(|(_, ver)| {
+                                    .for_each(|ver| {
                                         if let Ok(ref v) = ver
-                                            && let Some(en) = carr.dependency_lookup.get(&v.id)
+                                            && let Some(en) =
+                                                carr.dependency_lookup.get(&v.crate_id)
                                             && let Some(cr) = carr.crate_lookup.get(&v.crate_id)
                                             && let Some(dep) = carr.crate_lookup.get(&v.id)
                                         {
@@ -87,6 +92,8 @@ impl Carriage {
                                                 v.crate_id,
                                                 cr.to_string(),
                                             );
+                                        } else {
+                                            todo!()
                                         }
                                     });
                             }
@@ -116,6 +123,10 @@ impl Carriage {
         } else {
             self.unresolved.push((krate, dependency));
         }
+    }
+
+    pub fn search(&self, krate: &String) -> Option<&Crate> {
+        self.map.get_with_base_key(krate)
     }
 }
 

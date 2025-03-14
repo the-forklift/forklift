@@ -24,13 +24,11 @@ impl Crate {
 pub struct Kiste {
     pub created_at: String,
     description: String,
-    documentation: String,
     homepage: String,
     pub id: u32,
     max_features: String,
     max_upload_size: Option<u32>,
     pub name: String,
-    readme: String,
     repository: String,
     updated_at: String,
 }
@@ -40,7 +38,7 @@ pub struct Depencil {
     pub crate_id: u32,
     default_features: Option<String>,
     explicit_name: Option<String>,
-    features: String,
+    features: Option<String>,
     pub id: u32,
     kind: u32,
     optional: String,
@@ -53,8 +51,9 @@ pub struct Depencil {
 pub struct Lesart {
     bin_names: String,
     checksum: String,
-    pub crate_id: u32,
-    crate_size: u32,
+    #[serde(default)]
+    pub crate_id: Option<u32>,
+    crate_size: Option<u32>,
     created_at: String,
     downloads: u32,
     features: String,
