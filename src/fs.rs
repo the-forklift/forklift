@@ -1,4 +1,5 @@
 use crate::crusher::Crusher;
+use crate::lookup::Lookup;
 use crate::store::{Crate, Depencil, Kiste, Lesart};
 use anyhow::Result;
 use csv::Reader;
@@ -15,8 +16,7 @@ use tar::Archive;
 pub struct Carriage {
     pub map: SichtMap<String, u32, Crate>,
     unresolved: Vec<(u32, u32)>,
-    dependency_lookup: BTreeMap<u32, u32>,
-    crate_lookup: BTreeMap<u32, String>,
+    lookup: Lookup,
 }
 
 impl Carriage {
@@ -24,8 +24,7 @@ impl Carriage {
         Self {
             map,
             unresolved: Vec::default(),
-            dependency_lookup: BTreeMap::default(),
-            crate_lookup,
+            lookup: Lookup::with_krate(crate_lookup),
         }
     }
 
@@ -65,8 +64,8 @@ impl Carriage {
                                 Reader::from_reader(entry).deserialize::<Lesart>().for_each(
                                     |dep| {
                                         if let Ok(ref d) = dep {
-                                            carr.dependency_lookup
-                                                .insert(d.crate_id.unwrap(), d.id);
+                                            carr.lookup
+                                                .insert_dependency(d.crate_id.unwrap(), d.id);
                                         } else {
                                             todo!()
                                         }
@@ -81,10 +80,9 @@ impl Carriage {
                                     .deserialize::<Depencil>()
                                     .for_each(|ver| {
                                         if let Ok(ref v) = ver
-                                            && let Some(en) =
-                                                carr.dependency_lookup.get(&v.crate_id)
-                                            && let Some(cr) = carr.crate_lookup.get(&v.crate_id)
-                                            && let Some(dep) = carr.crate_lookup.get(&v.id)
+                                            && let Some(en) = carr.lookup.get_dependency(v.crate_id)
+                                            && let Some(cr) = carr.lookup.get_crate_name(v.crate_id)
+                                            && let Some(dep) = carr.lookup.get_crate_name(v.id)
                                         {
                                             carr.add_dependency(
                                                 *en,

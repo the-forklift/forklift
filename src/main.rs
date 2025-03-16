@@ -10,6 +10,7 @@ mod crusher;
 mod download;
 mod fs;
 mod joystick;
+mod lookup;
 mod store;
 
 fn main() -> Result<()> {
