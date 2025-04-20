@@ -4,6 +4,7 @@
 
 use anyhow::Result;
 
+mod cell;
 mod cli;
 mod conditions;
 mod crusher;

@@ -1,22 +1,23 @@
 use crate::conditions::WhereClause;
-use crate::download::Ignition;
+use crate::fs::Carriage;
+use crate::store::Crate;
 use anyhow::Result;
 use semver::VersionReq;
 use std::collections::HashMap;
 use std::{error::Error, fmt::Display};
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Query {
-    package: Box<str>,
+    package: String,
     conditions: Option<WhereClause>,
 }
 
 impl Query {
-    pub fn parse(self) -> Result<()> {
-        let ignition = Ignition::init(self)?;
-        let krate = ignition.run()?;
-        ignition.process_output();
-        Ok(())
+    pub fn apply_to_carriage<'a>(&'a self, carriage: &'a mut Carriage) -> Result<Option<Crate>> {
+        match self.conditions {
+            None => Ok(carriage.search(&self.package)),
+            _ => todo!(),
+        }
     }
 }
 #[derive(Default, Debug)]

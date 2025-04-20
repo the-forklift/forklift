@@ -1,3 +1,4 @@
+use crate::cell::SichtCell;
 use crate::crusher::Crusher;
 use crate::lookup::Lookup;
 use crate::store::{Crate, Depencil, Kiste, Lesart};
@@ -10,104 +11,121 @@ use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
 use std::io::Read;
 use std::path::Path;
-use tar::Archive;
+use tar::{Archive, Entry};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Carriage {
-    pub map: SichtMap<String, u32, Crate>,
+    pub map: SichtCell<String, u32, Crate>,
     unresolved: Vec<(u32, u32)>,
-    lookup: Lookup,
 }
 
 impl Carriage {
-    pub fn new(map: SichtMap<String, u32, Crate>, crate_lookup: BTreeMap<u32, String>) -> Self {
+    pub fn new(map: SichtCell<String, u32, Crate>) -> Self {
         Self {
             map,
             unresolved: Vec::default(),
-            lookup: Lookup::with_krate(crate_lookup),
         }
     }
 
     pub fn unarchive<P: AsRef<Path>>(path: P) -> Result<Self, anyhow::Error> {
         let file = File::open(path)?;
         let mut archive = Archive::new(GzDecoder::new(file));
-        let carriage =
-            archive
-                .entries()
-                .unwrap()
-                .fold(Option::<Carriage>::None, |mut carriage, entry| {
-                    if let Ok(entry) = entry
-                        && let Ok(path) = entry.path()
-                        && path.extension().and_then(|x| x.to_str()).is_some()
-                    {
-                        match path {
-                            p if p.ends_with("crates.csv") => {
-                                let mut lookup = BTreeMap::default();
-                                let kisten = Reader::from_reader(entry)
-                                    .deserialize::<Kiste>()
-                                    .map(|cr| {
-                                        if let Ok(c) = cr {
-                                            lookup.insert(c.id, c.name.clone());
-                                            (Oder::new(c.name.clone(), c.id), Crate::new(c))
-                                        } else {
-                                            todo!()
-                                        }
-                                    })
-                                    .collect();
-
-                                carriage = Some(Carriage::new(kisten, lookup));
-                            }
-
-                            p if p.ends_with("versions.csv")
-                                && let Some(ref mut carr) = carriage =>
-                            {
-                                Reader::from_reader(entry).deserialize::<Lesart>().for_each(
-                                    |dep| {
-                                        if let Ok(ref d) = dep {
-                                            carr.lookup
-                                                .insert_dependency(d.crate_id.unwrap(), d.id);
-                                        } else {
-                                            todo!()
-                                        }
-                                    },
-                                );
-                            }
-
-                            p if p.ends_with("dependencies.csv")
-                                && let Some(ref mut carr) = carriage =>
-                            {
-                                Reader::from_reader(entry)
-                                    .deserialize::<Depencil>()
-                                    .for_each(|ver| {
-                                        if let Ok(ref v) = ver
-                                            && let Some(en) = carr.lookup.get_dependency(v.crate_id)
-                                            && let Some(cr) = carr.lookup.get_crate_name(v.crate_id)
-                                            && let Some(dep) = carr.lookup.get_crate_name(v.id)
-                                        {
-                                            carr.add_dependency(
-                                                *en,
-                                                dep.to_string(),
-                                                v.crate_id,
-                                                cr.to_string(),
-                                            );
-                                        } else {
-                                            todo!()
-                                        }
-                                    });
-                            }
-
-                            _ => {}
+        let (carriage, _) = archive.entries().unwrap().fold(
+            (Option::<Carriage>::None, Lookup::default()),
+            |(mut carriage, mut lookup), entry| {
+                if let Ok(entry) = entry
+                    && let Ok(path) = entry.path()
+                    && path.extension().and_then(|x| x.to_str()).is_some()
+                {
+                    match path {
+                        p if p.ends_with("crates.csv") => {
+                            let (carr, lu) = Self::process_crates(entry);
+                            carriage = Some(carr);
+                            lookup = lu;
                         }
+                        p if let Some(ref carriage) = carriage
+                            && p.ends_with("versions.csv") =>
+                        {
+                            carriage.process_versions(entry, &mut lookup);
+                        }
+                        p if let Some(ref carriage) = carriage
+                            && p.ends_with("dependencies.csv") =>
+                        {
+                            carriage.process_dependencies(entry, &mut lookup);
+                        }
+                        _ => {}
                     }
+                } else {
+                    todo!()
+                }
+                (carriage, lookup)
+            },
+        );
 
-                    carriage
-                });
+        Ok(carriage.unwrap())
+    }
 
-        carriage.ok_or_else(|| todo!())
+    pub fn process_crates(entry: impl Read) -> (Self, Lookup) {
+        let mut lookup = BTreeMap::default();
+        let map = Reader::from_reader(entry)
+            .deserialize::<Kiste>()
+            .map(|cr| {
+                if let Ok(c) = cr {
+                    lookup.insert(c.id, c.name.clone());
+                    (Oder::new(c.name.clone(), c.id), Crate::new(c))
+                } else {
+                    todo!()
+                }
+            })
+            .collect();
+
+        (
+            Carriage::new(SichtCell::new(map)),
+            Lookup::with_krate(lookup),
+        )
+    }
+
+    #[allow(clippy::unused_self)]
+    pub fn process_versions(&self, entry: impl Read, lookup: &mut Lookup) {
+        Reader::from_reader(entry)
+            .deserialize::<Lesart>()
+            .for_each(|ver| {
+                if let Ok(ref v) = ver
+                    && let Some(crate_id) = v.crate_id
+                {
+                    lookup.insert_dependency_relation(v.id, crate_id);
+                } else {
+                    todo!()
+                }
+            });
+    }
+
+    pub fn process_dependencies(&self, entry: impl Read, lookup: &mut Lookup) {
+        Reader::from_reader(entry)
+            .deserialize::<Depencil>()
+            .for_each(|dep| {
+                if let Ok(ref d) = dep {
+                    let krate_name = lookup.get_crate_name(d.crate_id);
+                    let dependency = lookup
+                        .get_dependency_relation_for_version(d.version_id)
+                        .copied();
+                    if let Some(krate_name) = krate_name
+                        && let Some(dependency) = dependency
+                        && let Some(dependency_name) = lookup.get_crate_name(dependency)
+                    {
+                        self.add_dependency(
+                            d.crate_id,
+                            krate_name.to_owned(),
+                            dependency,
+                            dependency_name.to_owned(),
+                        );
+                    }
+                }
+            });
     }
 
     pub fn add_dependency(
-        &mut self,
+        &self,
         krate: u32,
         krate_name: String,
         dependency: u32,
@@ -115,16 +133,17 @@ impl Carriage {
     ) {
         if let Some(cr) = self
             .map
-            .get_with_both_keys_mut(&Oder::new(krate_name, krate))
+            .borrow_mut()
+            .get_with_both_keys(&Oder::new(krate_name, krate))
         {
             cr.add_dependency(dependency, dependency_name);
         } else {
-            self.unresolved.push((krate, dependency));
+            todo!()
         }
     }
 
-    pub fn search(&self, krate: &String) -> Option<&Crate> {
-        self.map.get_with_base_key(krate)
+    pub fn search(&self, krate: &String) -> Option<Crate> {
+        self.map.borrow().get_with_base_key(krate).cloned()
     }
 }
 

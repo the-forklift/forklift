@@ -1,22 +1,25 @@
+use crate::cell::SichtCell;
 use serde::{Deserialize, Serialize};
-use sicht::SichtMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Crate {
     pub krate: Kiste,
-    pub dependencies: SichtMap<String, u32, Skid>,
+    pub dependencies: SichtCell<String, u32, Skid>,
 }
 impl Crate {
     pub fn new(krate: Kiste) -> Self {
         Self {
             krate,
-            dependencies: SichtMap::new(),
+            dependencies: SichtCell::default(),
         }
     }
 
-    pub fn add_dependency(&mut self, key: u32, krate_name: String) {
-        self.dependencies
-            .insert_with_both_keys(krate_name, key, Skid::new_with_dependency(key));
+    pub fn add_dependency(&self, key: u32, krate_name: String) {
+        self.dependencies.borrow_mut().insert_with_both_keys(
+            krate_name,
+            key,
+            Skid::new_with_dependency(key),
+        );
     }
 }
 

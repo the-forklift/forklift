@@ -25,11 +25,11 @@ impl Engine {
         Engine { query, carriage }
     }
 
-    pub fn run(&self) -> Result<Crate> {
-        todo!()
+    pub fn run(&mut self) -> Result<Option<Crate>> {
+        self.query.apply_to_carriage(&mut self.carriage)
     }
 
-    pub fn process_output(&self) {
+    pub fn process_output(&self) -> Result<()> {
         todo!()
     }
 }
