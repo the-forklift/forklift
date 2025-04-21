@@ -6,6 +6,7 @@ use anyhow::Result;
 
 pub struct Ignition {
     query: Query,
+    config: Config,
 }
 
 pub struct Engine {
@@ -15,7 +16,12 @@ pub struct Engine {
 
 impl Ignition {
     pub fn init(query: Query) -> Result<Engine> {
-        let carriage = Mast::load("db-dump.tar.gz")?;
+        let carriage = Mast::path("db-dump.tar.gz").load()?;
+        Ok(Engine::new(query, carriage))
+    }
+
+    pub fn init_with_config(query: Query, config: Config) -> Result<Engine> {
+        let carriage = Mast::path("db-dump.tar.gz").config(config).load()?;
         Ok(Engine::new(query, carriage))
     }
 }
@@ -34,16 +40,15 @@ impl Engine {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Clone, Debug, Default)]
+pub struct Config {
+    pub fresh: bool,
+}
 
-    #[test]
-    pub fn engine_ignites() {
-        let engine = Engine {
-            query: Query::default(),
-        };
-
-        dbg!(engine.get());
+impl Config {
+    pub fn fresh() -> Self {
+        let mut config = Config::default();
+        config.fresh = true;
+        config
     }
 }

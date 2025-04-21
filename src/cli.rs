@@ -1,4 +1,4 @@
-use crate::download::Ignition;
+use crate::download::{Config, Ignition};
 use crate::joystick::{Query, QueryAccumulator};
 use anyhow::Result;
 use clap::Parser;
@@ -43,7 +43,12 @@ pub fn init() -> Result<()> {
             interactive: false,
             query: Some(q),
             fresh: true,
-        } => todo!(),
+        } => {
+            let accumulator: Query = QueryAccumulator::from_input(&q).try_into()?;
+            let mut engine = Ignition::init_with_config(accumulator, Config::fresh())?;
+            let results = engine.run()?;
+            engine.process_output()
+        }
 
         _ => todo!("no query"),
     }
