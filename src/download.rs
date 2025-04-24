@@ -1,4 +1,4 @@
-use crate::fs::Carriage;
+use crate::carriage::Carriage;
 use crate::fs::Mast;
 use crate::joystick::Query;
 use crate::store::Crate;
@@ -36,7 +36,7 @@ impl Engine {
     }
 
     pub fn process_output(&self) -> Result<()> {
-        todo!()
+        todo!("next stage")
     }
 }
 
@@ -47,8 +47,9 @@ pub struct Config {
 
 impl Config {
     pub fn fresh() -> Self {
-        let mut config = Config::default();
-        config.fresh = true;
-        config
+        Config {
+            fresh: true,
+            ..Default::default()
+        }
     }
 }

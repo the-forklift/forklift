@@ -4,6 +4,7 @@
 
 use anyhow::Result;
 
+mod carriage;
 mod cell;
 mod cli;
 mod conditions;

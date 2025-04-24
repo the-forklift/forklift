@@ -1,4 +1,5 @@
-use crate::fs::{Carriage, Mast};
+use crate::carriage::Carriage;
+use crate::fs::Mast;
 use anyhow::Result;
 
 pub trait Crusher: Sized {

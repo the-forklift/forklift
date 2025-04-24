@@ -4,6 +4,7 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 
+#[derive(Clone)]
 pub struct SichtCell<K, O, V>(Rc<RefCell<SichtMap<K, O, V>>>)
 where
     K: Ord,
@@ -24,18 +25,6 @@ where
 
     pub fn borrow_mut(&self) -> RefMut<'_, SichtMap<K, O, V>> {
         self.0.borrow_mut()
-    }
-}
-
-impl<K, O, V> Clone for SichtCell<K, O, V>
-where
-    K: Ord + Clone,
-    O: Ord + Clone,
-    V: Clone,
-    Rc<RefCell<SichtMap<K, O, V>>>: Clone,
-{
-    fn clone(&self) -> Self {
-        SichtCell(Rc::new(RefCell::new(self.0.borrow_mut().clone())))
     }
 }
 

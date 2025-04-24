@@ -1,5 +1,5 @@
+use crate::carriage::Carriage;
 use crate::conditions::WhereClause;
-use crate::fs::Carriage;
 use crate::store::Crate;
 use anyhow::Result;
 use semver::VersionReq;
