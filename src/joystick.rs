@@ -1,6 +1,6 @@
 use crate::carriage::Carriage;
 use crate::conditions::WhereClause;
-use crate::store::Crate;
+use crate::store::UnrolledCrate;
 use anyhow::Result;
 use semver::VersionReq;
 use std::collections::HashMap;
@@ -13,7 +13,10 @@ pub struct Query {
 }
 
 impl Query {
-    pub fn apply_to_carriage<'a>(&'a self, carriage: &'a mut Carriage) -> Result<Option<Crate>> {
+    pub fn apply_to_carriage<'a>(
+        &'a self,
+        carriage: &'a mut Carriage,
+    ) -> Result<Option<UnrolledCrate>> {
         match self.conditions {
             None => Ok(carriage.search(&self.package)),
             _ => todo!(),

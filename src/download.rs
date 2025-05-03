@@ -1,7 +1,7 @@
 use crate::carriage::Carriage;
 use crate::fs::Mast;
 use crate::joystick::Query;
-use crate::store::Crate;
+use crate::store::UnrolledCrate;
 use anyhow::Result;
 
 pub struct Ignition {
@@ -31,7 +31,7 @@ impl Engine {
         Engine { query, carriage }
     }
 
-    pub fn run(&mut self) -> Result<Option<Crate>> {
+    pub fn run(&mut self) -> Result<Option<UnrolledCrate>> {
         self.query.apply_to_carriage(&mut self.carriage)
     }
 
@@ -46,6 +46,7 @@ pub struct Config {
 }
 
 impl Config {
+    #[allow(clippy::needless_update)]
     pub fn fresh() -> Self {
         Config {
             fresh: true,

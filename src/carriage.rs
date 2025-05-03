@@ -1,6 +1,6 @@
 use crate::cell::SichtCell;
 use crate::lookup::Lookup;
-use crate::store::{Crate, Depencil, Kiste, Lesart};
+use crate::store::{Crate, Depencil, Kiste, Lesart, UnrolledCrate};
 use anyhow::Result;
 use csv::Reader;
 use flate2::read::GzDecoder;
@@ -117,7 +117,11 @@ impl Carriage {
                             dependency,
                             dependency_name.to_owned(),
                         );
+                    } else {
+                        todo!()
                     }
+                } else {
+                    todo!()
                 }
             });
     }
@@ -140,7 +144,8 @@ impl Carriage {
         }
     }
 
-    pub fn search(&self, krate: &String) -> Option<Crate> {
-        self.map.borrow().get_with_base_key(krate).cloned()
+    pub fn search(&self, krate: &str) -> Option<UnrolledCrate> {
+        let root = self.map.borrow().get_with_base_key(krate).cloned();
+        root.map(|r| r.unroll_dependencies(self))
     }
 }

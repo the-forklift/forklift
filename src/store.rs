@@ -1,5 +1,7 @@
+use crate::carriage::Carriage;
 use crate::cell::SichtCell;
 use serde::{Deserialize, Serialize};
+use sicht::selector::Oder;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Crate {
@@ -20,6 +22,10 @@ impl Crate {
             key,
             Skid::new_with_dependency(key),
         );
+    }
+
+    pub fn unroll_dependencies(&self, carriage: &Carriage) -> UnrolledCrate {
+        UnrolledCrate::from_crate(self, carriage)
     }
 }
 
@@ -90,5 +96,55 @@ impl Skid {
             dependency,
             version: None,
         }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct UnrolledCrate {
+    crate_id: u32,
+    name: String,
+    dependents: Vec<Self>,
+}
+impl UnrolledCrate {
+    pub fn new(crate_id: u32, name: String, dependents: Vec<Self>) -> Self {
+        Self {
+            crate_id,
+            name,
+            dependents,
+        }
+    }
+
+    pub fn from_crate(krate: &Crate, carriage: &Carriage) -> Self {
+        Self {
+            crate_id: krate.krate.id,
+            name: krate.krate.name.clone(),
+            dependents: krate
+                .dependencies
+                .borrow()
+                .iter()
+                .filter_map(|(Oder { left, right: _ }, _)| {
+                    left.as_ref()
+                        .and_then(|l| Self::from_crate_name(l, carriage))
+                })
+                .collect(),
+        }
+    }
+
+    pub fn from_crate_name(krate_name: &str, carriage: &Carriage) -> Option<Self> {
+        let map = carriage.map.borrow();
+        let krate = map.get_with_base_key(krate_name)?;
+        Some(Self {
+            crate_id: krate.krate.id,
+            name: krate.krate.name.clone(),
+            dependents: krate
+                .dependencies
+                .borrow()
+                .iter()
+                .filter_map(|(Oder { left, right: _ }, _)| {
+                    left.as_ref()
+                        .and_then(|l| Self::from_crate_name(l, carriage))
+                })
+                .collect(),
+        })
     }
 }
