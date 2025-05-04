@@ -1,5 +1,6 @@
 use crate::cell::SichtCell;
 use crate::lookup::Lookup;
+use crate::store::Skid;
 use crate::store::{Crate, Depencil, Kiste, Lesart, UnrolledCrate};
 use anyhow::Result;
 use csv::Reader;
@@ -15,14 +16,14 @@ use tar::Archive;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Carriage {
     pub map: SichtCell<String, u32, Crate>,
-    unresolved: Vec<(u32, u32)>,
+    pub traversed: SichtCell<String, u32, Skid>,
 }
 
 impl Carriage {
     pub fn new(map: SichtCell<String, u32, Crate>) -> Self {
         Self {
             map,
-            unresolved: Vec::default(),
+            traversed: SichtCell::default(),
         }
     }
 
@@ -54,7 +55,6 @@ impl Carriage {
                         }
                         _ => {}
                     }
-                } else {
                 }
                 (carriage, lookup)
             },
@@ -146,6 +146,38 @@ impl Carriage {
 
     pub fn search(&self, krate: &str) -> Option<UnrolledCrate> {
         let root = self.map.borrow().get_with_base_key(krate).cloned();
-        root.map(|r| r.unroll_dependencies(self))
+        root.map(|r| self.generate_from_crate(&r))
+    }
+
+    pub fn generate_from_crate(&self, krate: &Crate) -> UnrolledCrate {
+        UnrolledCrate {
+            crate_id: krate.krate.id,
+            name: krate.krate.name.clone(),
+            dependents: krate
+                .dependencies
+                .borrow()
+                .iter()
+                .filter_map(|(Oder { left, right: _ }, _)| {
+                    left.as_ref().and_then(|l| self.generate_from_crate_name(l))
+                })
+                .collect(),
+        }
+    }
+
+    pub fn generate_from_crate_name(&self, krate_name: &str) -> Option<UnrolledCrate> {
+        let map = self.map.borrow();
+        let krate = map.get_with_base_key(krate_name)?;
+        Some(UnrolledCrate {
+            crate_id: krate.krate.id,
+            name: krate.krate.name.clone(),
+            dependents: krate
+                .dependencies
+                .borrow()
+                .iter()
+                .filter_map(|(Oder { left, right: _ }, _)| {
+                    left.as_ref().and_then(|l| self.generate_from_crate_name(l))
+                })
+                .collect(),
+        })
     }
 }
