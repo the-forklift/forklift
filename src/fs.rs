@@ -27,7 +27,7 @@ impl Mast {
         self
     }
 
-    pub fn load(&mut self) -> Result<Carriage> {
+    pub fn load<'a>(&mut self) -> Result<Carriage<'a>> {
         if !self.config.fresh
             && let Ok(mut file) = OpenOptions::new().read(true).open("lager.fork")
         {
@@ -41,7 +41,7 @@ impl Mast {
         }
     }
 
-    pub fn store_contents(contents: &Carriage) -> Result<()> {
+    pub fn store_contents(contents: &Carriage<'_>) -> Result<()> {
         let file = OpenOptions::new()
             .write(true)
             .create(true)

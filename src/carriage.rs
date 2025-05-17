@@ -7,6 +7,7 @@ use csv::Reader;
 use flate2::read::GzDecoder;
 use serde::{Deserialize, Serialize};
 use sicht::selector::Oder;
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::Read;
@@ -14,13 +15,13 @@ use std::path::Path;
 use tar::Archive;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Carriage {
-    pub map: SichtCell<String, u32, Crate>,
-    pub traversed: SichtCell<String, u32, Skid>,
+pub struct Carriage<'a> {
+    pub map: SichtCell<'a, String, u32, Crate<'a>>,
+    pub traversed: SichtCell<'a, String, u32, Skid>,
 }
 
-impl Carriage {
-    pub fn new(map: SichtCell<String, u32, Crate>) -> Self {
+impl<'a> Carriage<'a> {
+    pub fn new(map: SichtCell<'a, String, u32, Crate<'a>>) -> Self {
         Self {
             map,
             traversed: SichtCell::default(),
@@ -31,7 +32,7 @@ impl Carriage {
         let file = File::open(path)?;
         let mut archive = Archive::new(GzDecoder::new(file));
         let (carriage, _) = archive.entries().unwrap().fold(
-            (Option::<Carriage>::None, Lookup::default()),
+            (Option::<Carriage<'a>>::None, Lookup::default()),
             |(mut carriage, mut lookup), entry| {
                 if let Ok(entry) = entry
                     && let Ok(path) = entry.path()
@@ -70,7 +71,10 @@ impl Carriage {
             .map(|cr| {
                 if let Ok(c) = cr {
                     lookup.insert(c.id, c.name.clone());
-                    (Oder::new(c.name.clone(), c.id), Crate::new(c))
+                    (
+                        Oder::new(Cow::Owned(c.name.to_owned()), Cow::Owned(c.id)),
+                        Crate::new(c.to_owned()),
+                    )
                 } else {
                     todo!()
                 }
@@ -113,7 +117,7 @@ impl Carriage {
                     {
                         self.add_dependency(
                             d.crate_id,
-                            krate_name.to_owned(),
+                            krate_name,
                             dependency,
                             dependency_name.to_owned(),
                         );
@@ -127,29 +131,33 @@ impl Carriage {
     }
 
     pub fn add_dependency(
-        &self,
+        &'a self,
         krate: u32,
-        krate_name: String,
+        krate_name: &str,
         dependency: u32,
         dependency_name: String,
     ) {
         if let Some(cr) = self
             .map
             .borrow_mut()
-            .get_with_both_keys(&Oder::new(krate_name, krate))
+            .get_with_both_keys(&Oder::new(Cow::Borrowed(krate_name), Cow::Owned(krate)))
         {
-            cr.add_dependency(dependency, dependency_name);
+            cr.add_dependency(dependency, &dependency_name);
         } else {
             todo!()
         }
     }
 
-    pub fn search(&self, krate: &str) -> Option<UnrolledCrate> {
-        let root = self.map.borrow().get_with_base_key(krate).cloned();
-        root.map(|r| self.generate_from_crate(&r))
+    pub fn search(&self, krate: &String) -> Option<UnrolledCrate> {
+        let root = self
+            .map
+            .borrow()
+            .get_with_base_key(Cow::Borrowed(krate))
+            .cloned();
+        dbg!(root.map(|r| self.generate_from_crate(&r)))
     }
 
-    pub fn generate_from_crate(&self, krate: &Crate) -> UnrolledCrate {
+    pub fn generate_from_crate(&self, krate: &Crate<'a>) -> UnrolledCrate {
         UnrolledCrate {
             crate_id: krate.krate.id,
             name: krate.krate.name.clone(),
@@ -157,16 +165,18 @@ impl Carriage {
                 .dependencies
                 .borrow()
                 .iter()
-                .filter_map(|(Oder { left, right: _ }, _)| {
-                    left.as_ref().and_then(|l| self.generate_from_crate_name(l))
+                .filter_map(|(Oder { left, right }, _)| {
+                    left.as_ref()
+                        .zip(right.as_ref())
+                        .and_then(|(l, r)| self.generate_if_not_traversed(l, *r.as_ref()))
                 })
                 .collect(),
         }
     }
 
-    pub fn generate_from_crate_name(&self, krate_name: &str) -> Option<UnrolledCrate> {
+    pub fn generate_from_crate_name(&'a self, krate_name: &String) -> Option<UnrolledCrate> {
         let map = self.map.borrow();
-        let krate = map.get_with_base_key(krate_name)?;
+        let krate = map.get_with_base_key(Cow::Borrowed(&krate_name))?;
         Some(UnrolledCrate {
             crate_id: krate.krate.id,
             name: krate.krate.name.clone(),
@@ -174,10 +184,32 @@ impl Carriage {
                 .dependencies
                 .borrow()
                 .iter()
-                .filter_map(|(Oder { left, right: _ }, _)| {
-                    left.as_ref().and_then(|l| self.generate_from_crate_name(l))
+                .filter_map(|(Oder { left, right }, _)| {
+                    left.as_ref()
+                        .zip(right.as_ref())
+                        .and_then(|(l, r)| self.generate_if_not_traversed(l, *r.as_ref()))
                 })
                 .collect(),
         })
+    }
+
+    pub fn generate_if_not_traversed(
+        &self,
+        krate: &String,
+        crate_id: u32,
+    ) -> Option<UnrolledCrate> {
+        if self
+            .traversed
+            .borrow()
+            .contains_both_keys(Cow::Borrowed(krate), Cow::Owned(crate_id))
+        {
+            Some(UnrolledCrate {
+                crate_id,
+                name: krate.to_owned(),
+                dependents: Vec::default(),
+            })
+        } else {
+            self.generate_from_crate_name(krate)
+        }
     }
 }

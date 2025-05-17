@@ -2,11 +2,11 @@ use crate::cell::SichtCell;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Crate {
+pub struct Crate<'a> {
     pub krate: Kiste,
-    pub dependencies: SichtCell<String, u32, Skid>,
+    pub dependencies: SichtCell<'a, String, u32, Skid>,
 }
-impl Crate {
+impl<'a> Crate<'a> {
     pub fn new(krate: Kiste) -> Self {
         Self {
             krate,
@@ -14,7 +14,7 @@ impl Crate {
         }
     }
 
-    pub fn add_dependency(&self, key: u32, krate_name: String) {
+    pub fn add_dependency(&'a self, key: u32, krate_name: &'a String) {
         self.dependencies.borrow_mut().insert_with_both_keys(
             krate_name,
             key,
