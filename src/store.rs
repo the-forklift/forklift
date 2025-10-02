@@ -1,10 +1,11 @@
 use crate::cell::SichtCell;
 use serde::{Deserialize, Serialize};
+use kuh::Kuh;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Crate {
     pub krate: Kiste,
-    pub dependencies: SichtCell<String, u32, Skid>,
+    pub dependencies: SichtCell<'a, String, u32, Skid>,
 }
 impl Crate {
     pub fn new(krate: Kiste) -> Self {
@@ -14,9 +15,9 @@ impl Crate {
         }
     }
 
-    pub fn add_dependency(&self, key: u32, krate_name: String) {
+    pub fn add_dependency(&self, key: u32, krate_name: &str) {
         self.dependencies.borrow_mut().insert_with_both_keys(
-            krate_name,
+            krate_name.to_owned(),
             key,
             Skid::new_with_dependency(key),
         );
@@ -89,6 +90,22 @@ impl Skid {
         Self {
             dependency,
             version: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct UnrolledCrate<'a> {
+    pub crate_id: Kuh<'a, u32>,
+    pub name: Kuh<'a, String>,
+    pub dependents: Vec<Self>,
+}
+impl<'a> UnrolledCrate<'a> {
+    pub fn new(crate_id: Kuh<'a, u32>, name: Kuh<'a, String>, dependents: Vec<Self>) -> Self {
+        Self {
+            crate_id,
+            name,
+            dependents,
         }
     }
 }

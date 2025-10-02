@@ -1,7 +1,7 @@
-use crate::fs::Carriage;
+use crate::carriage::Carriage;
 use crate::fs::Mast;
 use crate::joystick::Query;
-use crate::store::Crate;
+use crate::store::UnrolledCrate;
 use anyhow::Result;
 
 pub struct Ignition {
@@ -15,28 +15,29 @@ pub struct Engine {
 }
 
 impl Ignition {
-    pub fn init(query: Query) -> Result<Engine> {
-        let carriage = Mast::path("db-dump.tar.gz").load()?;
+    pub fn init<'a>(query: Query) -> Result<Engine> {
+        let mut mast = Mast::path("db-dump.tar.gz");
+        let carriage = mast.load()?;
         Ok(Engine::new(query, carriage))
     }
 
-    pub fn init_with_config(query: Query, config: Config) -> Result<Engine> {
+    pub fn init_with_config<'a>(query: Query, config: Config) -> Result<Engine> {
         let carriage = Mast::path("db-dump.tar.gz").config(config).load()?;
         Ok(Engine::new(query, carriage))
     }
 }
 
-impl Engine {
+impl<'a> Engine {
     pub fn new(query: Query, carriage: Carriage) -> Self {
         Engine { query, carriage }
     }
 
-    pub fn run(&mut self) -> Result<Option<Crate>> {
+    pub fn run(&'a mut self) -> Result<Option<UnrolledCrate<'a>>> {
         self.query.apply_to_carriage(&mut self.carriage)
     }
 
     pub fn process_output(&self) -> Result<()> {
-        todo!()
+        todo!("next stage")
     }
 }
 
@@ -46,9 +47,11 @@ pub struct Config {
 }
 
 impl Config {
+    #[allow(clippy::needless_update)]
     pub fn fresh() -> Self {
-        let mut config = Config::default();
-        config.fresh = true;
-        config
+        Config {
+            fresh: true,
+            ..Default::default()
+        }
     }
 }

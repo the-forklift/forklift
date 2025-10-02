@@ -3,70 +3,61 @@ use sicht::SichtMap;
 use std::cell::{Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
+use kuh::Derow;
 
-pub struct SichtCell<K, O, V>(Rc<RefCell<SichtMap<K, O, V>>>)
+#[derive(Clone)]
+pub struct SichtCell<'a, K, O, V>(Rc<RefCell<SichtMap<'a, K, O, V>>>)
 where
-    K: Ord,
-    O: Ord;
+   K: Ord + Derow<'a> + Clone,
+    O: Ord + Derow<'a> + Clone;
 
-impl<K, O, V> SichtCell<K, O, V>
+
+impl<'a, K, O, V> SichtCell<'a, K, O, V>
 where
-    K: Ord,
-    O: Ord,
+    K: Ord + Derow<'a> + Clone,
+    O: Ord + Derow<'a> + Clone,
 {
-    pub fn new(map: SichtMap<K, O, V>) -> Self {
+    pub fn new(map: SichtMap<'a, K, O, V>) -> Self {
         Self(Rc::new(RefCell::new(map)))
     }
 
-    pub fn borrow(&self) -> Ref<'_, SichtMap<K, O, V>> {
+    pub fn borrow(&self) -> Ref<'_, SichtMap<'a, K, O, V>> {
         self.0.borrow()
     }
 
-    pub fn borrow_mut(&self) -> RefMut<'_, SichtMap<K, O, V>> {
+    pub fn borrow_mut(&self) -> RefMut<'_, SichtMap<'a, K, O, V>> {
         self.0.borrow_mut()
     }
 }
 
-impl<K, O, V> Clone for SichtCell<K, O, V>
+impl<'a, K, O, V> Debug for SichtCell<'a, K, O, V>
 where
-    K: Ord + Clone,
-    O: Ord + Clone,
-    V: Clone,
-    Rc<RefCell<SichtMap<K, O, V>>>: Clone,
-{
-    fn clone(&self) -> Self {
-        SichtCell(Rc::new(RefCell::new(self.0.borrow_mut().clone())))
-    }
-}
-
-impl<K, O, V> Debug for SichtCell<K, O, V>
-where
-    K: Ord + Debug,
-    O: Ord + Debug,
+    K: Ord + Derow<'a> + Clone + Debug,
+    O: Ord + Derow<'a> + Clone + Debug,
     V: Debug,
-    Rc<RefCell<SichtMap<K, O, V>>>: Debug,
+    Rc<RefCell<SichtMap<'a, K, O, V>>>: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl<K, O, V> Default for SichtCell<K, O, V>
+impl<'a, K, O, V> Default for SichtCell<'a, K, O, V>
 where
-    K: Ord + Default,
-    O: Ord + Default,
-    Rc<RefCell<SichtMap<K, O, V>>>: Default,
+    K: Ord + Derow<'a> + Clone + Default,
+    O: Ord + Derow<'a> + Clone + Default,
+    Rc<RefCell<SichtMap<'a, K, O, V>>>: Default,
 {
     fn default() -> Self {
         SichtCell(Rc::default())
     }
 }
 
-impl<K, O, V> Serialize for SichtCell<K, O, V>
+impl<'a, K, O, V> Serialize for SichtCell<'a, K, O, V>
 where
-    K: Ord + Serialize,
-    O: Ord + Serialize,
-    SichtMap<K, O, V>: Serialize,
+    K: Ord + Derow<'a> + Clone + Serialize,
+    O: Ord + Derow<'a> + Clone + Serialize,
+    SichtMap<'a, K, O, V>: Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -76,12 +67,12 @@ where
     }
 }
 
-impl<'de, K, O, V> Deserialize<'de> for SichtCell<K, O, V>
+impl<'de, K, O, V> Deserialize<'de> for SichtCell<'de, K, O, V>
 where
-    K: Ord + Deserialize<'de> + Debug,
-    O: Ord + Deserialize<'de> + Debug,
+    K: Ord + Derow<'de> + Deserialize<'de> + Clone,
+    O: Ord + Derow<'de> + Deserialize<'de> + Clone,
     V: Debug,
-    SichtMap<K, O, V>: Deserialize<'de>,
+    SichtMap<'de, K, O, V>: Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

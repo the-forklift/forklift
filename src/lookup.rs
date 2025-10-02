@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 pub struct Lookup {
     dependency: BTreeMap<u32, u32>,
     krate: BTreeMap<u32, String>,
-    dependency_version: BTreeMap<u32, u32>,
+    pub dependency_version: BTreeMap<u32, u32>,
 }
 
 impl Lookup {
@@ -30,7 +30,7 @@ impl Lookup {
         self.krate.get(&crate_id).map(|x| x.as_ref())
     }
 
-    pub fn insert_dependency_relation(&mut self, crate_id: u32, version_id: u32) {
+    pub fn insert_dependency_relation(&mut self, version_id: u32, crate_id: u32) {
         self.dependency_version.insert(version_id, crate_id);
     }
 
