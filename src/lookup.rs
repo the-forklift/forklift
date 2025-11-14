@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Lookup {
     dependency: BTreeMap<u32, u32>,
-    krate: BTreeMap<u32, String>,
+    pub krate: BTreeMap<u32, String>,
     pub dependency_version: BTreeMap<u32, u32>,
 }
 

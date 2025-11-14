@@ -1,13 +1,16 @@
 use crate::cell::SichtCell;
-use serde::{Deserialize, Serialize};
 use kuh::Kuh;
+use serde::de::Visitor;
+use serde::{Deserialize, Deserializer, Serialize};
+use std::fmt::{Debug, Formatter};
+use std::marker::PhantomData;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Crate {
+#[derive(Debug, Clone)]
+pub struct Crate<'a> {
     pub krate: Kiste,
     pub dependencies: SichtCell<'a, String, u32, Skid>,
 }
-impl Crate {
+impl<'a> Crate<'a> {
     pub fn new(krate: Kiste) -> Self {
         Self {
             krate,
@@ -107,5 +110,36 @@ impl<'a> UnrolledCrate<'a> {
             name,
             dependents,
         }
+    }
+}
+
+impl<'de, 'a> Deserialize<'de> for Crate<'a> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct CrateVisitor<'a> {
+            map: PhantomData<&'a ()>,
+            lookup: PhantomData<&'a ()>,
+        }
+
+        impl CrateVisitor<'_> {
+            fn new() -> Self {
+                Self {
+                    map: PhantomData,
+                    lookup: PhantomData,
+                }
+            }
+        }
+
+        impl<'de, 'a> Visitor<'de> for CrateVisitor<'a> {
+            type Value = Crate<'a>;
+
+            fn expecting(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
+                write!(formatter, "Oder left or right are malformed")
+            }
+        }
+
+        deserializer.deserialize_struct("Crate", &["krate", "dependencies"], CrateVisitor::new())
     }
 }

@@ -1,6 +1,7 @@
 use crate::carriage::Carriage;
 use crate::crusher::Crusher;
 use crate::download::Config;
+use crate::serproxy::CarriageSer;
 use anyhow::Result;
 use serde::Deserialize;
 use std::fs::OpenOptions;
@@ -35,13 +36,14 @@ impl Mast {
             let _ = file.read_to_end(&mut buffer)?;
             Self::uncrush(buffer)
         } else {
-            let contents = Carriage::unarchive(&self.path)?;
-            let _ = Self::store_contents(&contents);
-            Ok(contents)
+            let carriage = Carriage::default();
+            carriage.unarchive(&self.path)?;
+            let _ = Self::store_contents(carriage.into());
+            Ok(carriage)
         }
     }
 
-    pub fn store_contents<'a>(contents: &Carriage<'a>) -> Result<()> {
+    pub fn store_contents(contents: CarriageSer) -> Result<()> {
         let file = OpenOptions::new()
             .write(true)
             .create(true)

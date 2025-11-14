@@ -13,6 +13,7 @@ mod download;
 mod fs;
 mod joystick;
 mod lookup;
+mod serproxy;
 mod store;
 
 fn main() -> Result<()> {

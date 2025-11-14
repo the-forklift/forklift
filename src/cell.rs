@@ -1,21 +1,20 @@
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use kuh::Derow;
+use serde::{Deserialize, Deserializer};
 use sicht::SichtMap;
 use std::cell::{Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
-use kuh::Derow;
 
 #[derive(Clone)]
 pub struct SichtCell<'a, K, O, V>(Rc<RefCell<SichtMap<'a, K, O, V>>>)
 where
-   K: Ord + Derow<'a> + Clone,
-    O: Ord + Derow<'a> + Clone;
-
+    K: Ord + Derow<'a, Target: Ord> + Clone,
+    O: Ord + Derow<'a, Target: Ord> + Clone;
 
 impl<'a, K, O, V> SichtCell<'a, K, O, V>
 where
-    K: Ord + Derow<'a> + Clone,
-    O: Ord + Derow<'a> + Clone,
+    K: Ord + Derow<'a, Target: Ord> + Clone,
+    O: Ord + Derow<'a, Target: Ord> + Clone,
 {
     pub fn new(map: SichtMap<'a, K, O, V>) -> Self {
         Self(Rc::new(RefCell::new(map)))
@@ -32,8 +31,8 @@ where
 
 impl<'a, K, O, V> Debug for SichtCell<'a, K, O, V>
 where
-    K: Ord + Derow<'a> + Clone + Debug,
-    O: Ord + Derow<'a> + Clone + Debug,
+    K: Ord + Derow<'a, Target: Ord> + Clone + Debug,
+    O: Ord + Derow<'a, Target: Ord> + Clone + Debug,
     V: Debug,
     Rc<RefCell<SichtMap<'a, K, O, V>>>: Debug,
 {
@@ -44,35 +43,21 @@ where
 
 impl<'a, K, O, V> Default for SichtCell<'a, K, O, V>
 where
-    K: Ord + Derow<'a> + Clone + Default,
-    O: Ord + Derow<'a> + Clone + Default,
-    Rc<RefCell<SichtMap<'a, K, O, V>>>: Default,
+    K: Ord + Derow<'a, Target: Ord> + Clone + Default,
+    O: Ord + Derow<'a, Target: Ord> + Clone + Default,
 {
     fn default() -> Self {
         SichtCell(Rc::default())
     }
 }
 
-impl<'a, K, O, V> Serialize for SichtCell<'a, K, O, V>
+impl<'de, 'a, K, O, V> Deserialize<'de> for SichtCell<'de, K, O, V>
 where
-    K: Ord + Derow<'a> + Clone + Serialize,
-    O: Ord + Derow<'a> + Clone + Serialize,
-    SichtMap<'a, K, O, V>: Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.0.borrow().serialize(serializer)
-    }
-}
-
-impl<'de, K, O, V> Deserialize<'de> for SichtCell<'de, K, O, V>
-where
-    K: Ord + Derow<'de> + Deserialize<'de> + Clone,
-    O: Ord + Derow<'de> + Deserialize<'de> + Clone,
-    V: Debug,
-    SichtMap<'de, K, O, V>: Deserialize<'de>,
+    K: Ord + Derow<'de, Target: Ord> + Deserialize<'de> + Clone + 'de,
+    O: Ord + Derow<'de, Target: Ord> + Deserialize<'de> + Clone + 'de,
+    V: Debug + 'de,
+    SichtMap<'de, K, O, V>: Deserialize<'de> + 'de,
+    Self: 'de,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
