@@ -83,7 +83,7 @@ impl<'a> Carriage<'a> {
         });
     }
 
-    pub fn process_crates(&self, entry: impl Read) {
+    pub fn process_crates(&mut self, entry: impl Read) {
         let mut lookup = BTreeMap::default();
         let map = Reader::from_reader(entry)
             .deserialize::<Kiste>()
@@ -91,7 +91,7 @@ impl<'a> Carriage<'a> {
                 if let Ok(c) = cr {
                     lookup.insert(c.id, c.name.clone());
                     (
-                        Oder::<String, u32>::new_with_kuh(Kuh::Borrowed(&c.name), Kuh::Owned(c.id)),
+                        Oder::<String, u32>::new_with_kuh(Kuh::Owned(c.name.to_owned()), Kuh::Owned(c.id)),
                         Crate::new(c.to_owned()),
                     )
                 } else {
@@ -99,6 +99,8 @@ impl<'a> Carriage<'a> {
                 }
             })
             .collect();
+
+        self.map = SichtCell::new(map);
     }
 
     #[allow(clippy::unused_self)]
@@ -154,17 +156,17 @@ impl<'a> Carriage<'a> {
     }
 
     pub fn add_dependency(
-        &self,
+        &'a self,
         krate: u32,
-        krate_name: String,
+        krate_name: &'a str,
         dependency: u32,
         dependency_name: String,
     ) {
         if let Some(cr) = self
             .map
             .borrow_mut()
-            .get_with_both_keys(&Oder::new_with_kuh(
-                Kuh::Borrowed(&krate_name),
+            .get_with_both_keys(Oder::new_with_kuh(
+                Kuh::Borrowed(krate_name),
                 Kuh::Owned(krate),
             ))
         {
@@ -174,19 +176,19 @@ impl<'a> Carriage<'a> {
         }
     }
 
-    pub fn search(&self, krate: &str) -> Option<UnrolledCrate<'a>> {
+    pub fn search(&self, krate: &'a str) -> Option<UnrolledCrate<'a, T>> {
         let root = self
             .map
             .borrow()
-            .get_with_base_key(&Kuh::Borrowed(&krate))
+            .get_with_base_key(&Kuh::Borrowed(krate))
             .cloned();
-        dbg!(root.map(|r| self.generate_from_crate(&r)))
+        root.map(|r| self.generate_from_crate(r))
     }
 
-    pub fn generate_from_crate(&self, krate: &Crate<'a>) -> UnrolledCrate<'a> {
+    pub fn generate_from_crate(&self, krate: Crate<'a>) -> UnrolledCrate<'a> {
         UnrolledCrate {
             crate_id: Kuh::Owned(krate.krate.id),
-            name: Kuh::Borrowed(&krate.krate.name),
+            name: Kuh::Owned(krate.krate.name),
             dependents: krate
                 .dependencies
                 .borrow()
@@ -202,7 +204,7 @@ impl<'a> Carriage<'a> {
 
     pub fn generate_from_crate_name(
         &'a self,
-        krate_name: &Kuh<'a, String>,
+        krate_name: Kuh<'a, String>,
     ) -> Option<UnrolledCrate<'a>> {
         let map = self.map.borrow();
         let krate = map.get_with_base_key(&krate_name)?;

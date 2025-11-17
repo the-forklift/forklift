@@ -1,5 +1,5 @@
 use crate::cell::SichtCell;
-use kuh::Kuh;
+use kuh::{Kuh, Derow};
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt::{Debug, Formatter};
@@ -98,13 +98,19 @@ impl Skid {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct UnrolledCrate<'a> {
+pub struct UnrolledCrate<'a, T> 
+where
+    T: Derow<'a, Target = str> + Clone + Ord,
+{
     pub crate_id: Kuh<'a, u32>,
-    pub name: Kuh<'a, String>,
+    pub name: Kuh<'a, T>,
     pub dependents: Vec<Self>,
 }
-impl<'a> UnrolledCrate<'a> {
-    pub fn new(crate_id: Kuh<'a, u32>, name: Kuh<'a, String>, dependents: Vec<Self>) -> Self {
+impl<'a, T> UnrolledCrate<'a, T> 
+where
+    T: Derow<'a, Target = str> + Clone + Ord,
+{
+    pub fn new(crate_id: Kuh<'a, u32>, name: Kuh<'a, T>, dependents: Vec<Self>) -> Self {
         Self {
             crate_id,
             name,
