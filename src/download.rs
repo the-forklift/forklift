@@ -9,30 +9,30 @@ pub struct Ignition {
     config: Config,
 }
 
-pub struct Engine<'a> {
+pub struct Engine {
     query: Query,
-    carriage: Carriage<'a>,
+    carriage: Carriage,
 }
 
 impl Ignition {
-    pub fn init<'a>(query: Query) -> Result<Engine<'a>> {
+    pub fn init<'a>(query: Query) -> Result<Engine> {
         let mut mast = Mast::path("db-dump.tar.gz");
         let carriage = mast.load()?;
         Ok(Engine::new(query, carriage))
     }
 
-    pub fn init_with_config<'a>(query: Query, config: Config) -> Result<Engine<'a>> {
+    pub fn init_with_config<'a>(query: Query, config: Config) -> Result<Engine> {
         let carriage = Mast::path("db-dump.tar.gz").config(config).load()?;
         Ok(Engine::new(query, carriage))
     }
 }
 
-impl<'a> Engine<'a> {
-    pub fn new(query: Query, carriage: Carriage<'a>) -> Self {
+impl Engine {
+    pub fn new(query: Query, carriage: Carriage) -> Self {
         Engine { query, carriage }
     }
 
-    pub fn run(&'a mut self) -> Result<Option<UnrolledCrate<'a>>> {
+    pub fn run(&mut self) -> Result<Option<UnrolledCrate>> {
         self.query.apply_to_carriage(&mut self.carriage)
     }
 

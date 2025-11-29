@@ -5,26 +5,24 @@ use crate::store::{Crate, Depencil, Kiste, Lesart, UnrolledCrate};
 use anyhow::Result;
 use csv::Reader;
 use flate2::read::GzDecoder;
-use kuh::Kuh;
 use serde::{Deserialize, Deserializer, de::Visitor};
 use sicht::selector::Oder;
 use std::collections::{BTreeMap, btree_map::IntoIter};
 use std::fmt::{Debug, Formatter};
-use std::marker::PhantomData;
 use std::path::Path;
 use std::{cell::RefCell, rc::Rc};
 use std::{fs::File, io::Read};
 use tar::Archive;
 
 #[derive(Clone, Debug, Default)]
-pub struct Carriage<'a> {
-    pub map: SichtCell<'a, String, u32, Crate<'a>>,
-    pub traversed: SichtCell<'a, String, u32, Skid>,
+pub struct Carriage {
+    pub map: SichtCell<String, u32, Crate>,
+    pub traversed: SichtCell<String, u32, Skid>,
     pub lookup: Rc<RefCell<Lookup>>,
 }
 
-impl<'a> Carriage<'a> {
-    pub fn new(map: SichtCell<'a, String, u32, Crate<'a>>, lookup: Lookup) -> Self {
+impl<'a> Carriage {
+    pub fn new(map: SichtCell<String, u32, Crate>, lookup: Lookup) -> Self {
         Self {
             map,
             traversed: SichtCell::default(),
@@ -32,7 +30,7 @@ impl<'a> Carriage<'a> {
         }
     }
 
-    pub fn unarchive<P: AsRef<Path>>(&self, path: P) -> Result<(), anyhow::Error> {
+    pub fn unarchive<P: AsRef<Path>>(&'a mut self, path: P) -> Result<(), anyhow::Error> {
         let file = File::open(path)?;
         let mut archive = Archive::new(GzDecoder::new(file));
         let order = archive
@@ -71,7 +69,7 @@ impl<'a> Carriage<'a> {
         Ok(())
     }
 
-    fn process_crate_information(&self, order: IntoIter<usize, impl Read>) {
+    fn process_crate_information(&'a mut self, order: IntoIter<usize, impl Read>) {
         order.for_each(|(i, ent)| {
             match i {
                 1 => {
@@ -91,7 +89,7 @@ impl<'a> Carriage<'a> {
                 if let Ok(c) = cr {
                     lookup.insert(c.id, c.name.clone());
                     (
-                        Oder::<String, u32>::new_with_kuh(Kuh::Owned(c.name.to_owned()), Kuh::Owned(c.id)),
+                        Oder::<String, u32>::new(c.name.clone(), c.id),
                         Crate::new(c.to_owned()),
                     )
                 } else {
@@ -120,7 +118,7 @@ impl<'a> Carriage<'a> {
             });
     }
 
-    pub fn process_dependencies(&self, entry: impl Read) {
+    pub fn process_dependencies(&'a self, entry: impl Read) {
         Reader::from_reader(entry)
             .deserialize::<Depencil>()
             .for_each(|dep| {
@@ -158,17 +156,14 @@ impl<'a> Carriage<'a> {
     pub fn add_dependency(
         &'a self,
         krate: u32,
-        krate_name: &'a str,
+        krate_name: String,
         dependency: u32,
         dependency_name: String,
     ) {
         if let Some(cr) = self
             .map
             .borrow_mut()
-            .get_with_both_keys(Oder::new_with_kuh(
-                Kuh::Borrowed(krate_name),
-                Kuh::Owned(krate),
-            ))
+            .get_with_both_keys(Oder::new(krate_name, krate))
         {
             cr.add_dependency(dependency, &dependency_name);
         } else {
@@ -176,59 +171,47 @@ impl<'a> Carriage<'a> {
         }
     }
 
-    pub fn search(&self, krate: &'a str) -> Option<UnrolledCrate<'a, T>> {
-        let root = self
-            .map
-            .borrow()
-            .get_with_base_key(&Kuh::Borrowed(krate))
-            .cloned();
+    pub fn search(&self, krate: &'a str) -> Option<UnrolledCrate> {
+        let root = self.map.borrow().get_with_base_key(&krate).cloned();
         root.map(|r| self.generate_from_crate(r))
     }
 
-    pub fn generate_from_crate(&self, krate: Crate<'a>) -> UnrolledCrate<'a> {
+    pub fn generate_from_crate(&self, krate: Crate) -> UnrolledCrate {
         UnrolledCrate {
-            crate_id: Kuh::Owned(krate.krate.id),
-            name: Kuh::Owned(krate.krate.name),
+            crate_id: krate.krate.id,
+            name: krate.krate.name,
             dependents: krate
                 .dependencies
                 .borrow()
-                .iter()
+                .into_iter()
                 .filter_map(|(Oder { left, right }, _)| {
                     left.as_ref()
                         .zip(right.as_ref())
-                        .and_then(|(l, r)| self.generate_if_not_traversed(l, r))
+                        .and_then(|(l, r)| self.generate_if_not_traversed(&l, *r))
                 })
                 .collect(),
         }
     }
 
-    pub fn generate_from_crate_name(
-        &'a self,
-        krate_name: Kuh<'a, String>,
-    ) -> Option<UnrolledCrate<'a>> {
+    pub fn generate_from_crate_name(&'a self, krate_name: &str) -> Option<UnrolledCrate> {
         let map = self.map.borrow();
         let krate = map.get_with_base_key(&krate_name)?;
         Some(UnrolledCrate {
-            crate_id: Kuh::Owned(krate.krate.id),
-            name: Kuh::Borrowed(&krate.krate.name),
+            crate_id: krate.krate.id,
+            name: krate.krate.name,
             dependents: krate
                 .dependencies
                 .borrow()
                 .iter()
                 .filter_map(|(Oder { left, right }, _)| {
-                    left.as_ref()
-                        .zip(right.as_ref())
-                        .and_then(|(l, r)| self.generate_if_not_traversed(l, r))
+                    left.zip(right.as_ref())
+                        .and_then(|(l, r)| self.generate_if_not_traversed(&l, *r))
                 })
                 .collect(),
         })
     }
 
-    pub fn generate_if_not_traversed(
-        &self,
-        krate: &Kuh<'_, String>,
-        crate_id: &Kuh<'_, u32>,
-    ) -> Option<UnrolledCrate<'a>> {
+    pub fn generate_if_not_traversed(&self, krate: &str, crate_id: u32) -> Option<UnrolledCrate> {
         if self.traversed.borrow().contains_both_keys(krate, crate_id) {
             Some(UnrolledCrate {
                 crate_id: crate_id.to_owned(),
@@ -241,27 +224,27 @@ impl<'a> Carriage<'a> {
     }
 }
 
-impl<'de, 'a> Deserialize<'de> for Carriage<'a> {
+impl<'de> Deserialize<'de> for Carriage {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct CarriageVisitor<'a> {
-            map: PhantomData<&'a ()>,
-            lookup: PhantomData<&'a ()>,
+        struct CarriageVisitor {
+            map: (),
+            lookup: (),
         }
 
-        impl CarriageVisitor<'_> {
+        impl CarriageVisitor {
             fn new() -> Self {
                 Self {
-                    map: PhantomData,
-                    lookup: PhantomData,
+                    map: (),
+                    lookup: (),
                 }
             }
         }
 
-        impl<'de, 'a> Visitor<'de> for CarriageVisitor<'a> {
-            type Value = Carriage<'a>;
+        impl<'de, 'a> Visitor<'de> for CarriageVisitor {
+            type Value = Carriage;
 
             fn expecting(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
                 write!(formatter, "Oder left or right are malformed")

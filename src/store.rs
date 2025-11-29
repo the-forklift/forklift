@@ -1,16 +1,15 @@
 use crate::cell::SichtCell;
-use kuh::{Kuh, Derow};
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 
 #[derive(Debug, Clone)]
-pub struct Crate<'a> {
+pub struct Crate {
     pub krate: Kiste,
-    pub dependencies: SichtCell<'a, String, u32, Skid>,
+    pub dependencies: SichtCell<String, u32, Skid>,
 }
-impl<'a> Crate<'a> {
+impl Crate {
     pub fn new(krate: Kiste) -> Self {
         Self {
             krate,
@@ -98,19 +97,13 @@ impl Skid {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct UnrolledCrate<'a, T> 
-where
-    T: Derow<'a, Target = str> + Clone + Ord,
-{
-    pub crate_id: Kuh<'a, u32>,
-    pub name: Kuh<'a, T>,
+pub struct UnrolledCrate {
+    pub crate_id: u32,
+    pub name: String,
     pub dependents: Vec<Self>,
 }
-impl<'a, T> UnrolledCrate<'a, T> 
-where
-    T: Derow<'a, Target = str> + Clone + Ord,
-{
-    pub fn new(crate_id: Kuh<'a, u32>, name: Kuh<'a, T>, dependents: Vec<Self>) -> Self {
+impl UnrolledCrate {
+    pub fn new(crate_id: u32, name: String, dependents: Vec<Self>) -> Self {
         Self {
             crate_id,
             name,
@@ -119,7 +112,7 @@ where
     }
 }
 
-impl<'de, 'a> Deserialize<'de> for Crate<'a> {
+impl<'de> Deserialize<'de> for Crate {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -139,7 +132,7 @@ impl<'de, 'a> Deserialize<'de> for Crate<'a> {
         }
 
         impl<'de, 'a> Visitor<'de> for CrateVisitor<'a> {
-            type Value = Crate<'a>;
+            type Value = Crate;
 
             fn expecting(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
                 write!(formatter, "Oder left or right are malformed")

@@ -28,7 +28,7 @@ impl Mast {
         self
     }
 
-    pub fn load<'a>(&'a mut self) -> Result<Carriage<'a>> {
+    pub fn load(&mut self) -> Result<Carriage> {
         if !self.config.fresh
             && let Ok(mut file) = OpenOptions::new().read(true).open("lager.fork")
         {

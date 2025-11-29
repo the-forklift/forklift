@@ -1,6 +1,5 @@
 use crate::carriage::Carriage;
 use crate::store::{Crate, Kiste, Skid};
-use kuh::Kuh;
 use serde::{Serialize, Serializer, ser::SerializeMap};
 use sicht::selector::Oder;
 use std::cell::RefCell;
@@ -11,17 +10,17 @@ pub struct CarriageSer {
     pub map: Rc<RefCell<BTreeMap<(String, u32), CrateSer>>>,
 }
 
-impl<'a> From<Carriage<'a>> for CarriageSer {
-    fn from(x: Carriage<'a>) -> Self {
+impl<'a> From<Carriage> for CarriageSer {
+    fn from(x: Carriage) -> Self {
         let map = x
             .map
             .borrow()
             .iter()
             .filter_map(|(od, v)| match od {
                 Oder {
-                    left: Some(Kuh::Borrowed(k)),
-                    right: Some(Kuh::Borrowed(o)),
-                } => Some(((String::from(*k), **o), v.to_owned().into())),
+                    left: Some(k),
+                    right: Some(o),
+                } => Some(((String::from(k), *o), CrateSer::from(v.clone()))),
                 _ => None,
             })
             .collect();
@@ -51,16 +50,14 @@ pub struct CrateSer {
     dependencies: Rc<RefCell<BTreeMap<(String, u32), Skid>>>,
 }
 
-impl<'a> From<Crate<'a>> for CrateSer {
-    fn from(x: Crate<'a>) -> Self {
+impl From<Crate> for CrateSer {
+    fn from(x: Crate) -> Self {
         let map = x
             .dependencies
             .borrow()
             .iter()
             .map(|(Oder { left, right }, d)| match (left, right) {
-                (Some(Kuh::Borrowed(l)), Some(Kuh::Borrowed(r))) => {
-                    (((*l).to_owned(), **r), d.to_owned())
-                }
+                (Some(l), Some(r)) => (((l).to_owned(), *r), d.to_owned()),
                 _ => todo!(),
             })
             .collect();

@@ -15,8 +15,8 @@ pub struct Query {
 impl Query {
     pub fn apply_to_carriage<'a>(
         &'a self,
-        carriage: &'a mut Carriage<'a>,
-    ) -> Result<Option<UnrolledCrate<'a>>> {
+        carriage: &'a mut Carriage,
+    ) -> Result<Option<UnrolledCrate>> {
         match self.conditions {
             None => Ok(carriage.search(&self.package)),
             _ => todo!(),
