@@ -6,7 +6,6 @@ use anyhow::Result;
 use csv::Reader;
 use flate2::read::GzDecoder;
 use serde::{Deserialize, Deserializer, de::Visitor};
-use sicht::selector::Oder;
 use std::collections::{BTreeMap, btree_map::IntoIter};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
@@ -16,13 +15,13 @@ use tar::Archive;
 
 #[derive(Clone, Debug, Default)]
 pub struct Carriage {
-    pub map: SichtCell<String, u32, Crate>,
-    pub traversed: SichtCell<String, u32, Skid>,
+    pub map: SichtCell<u32, String, Crate>,
+    pub traversed: SichtCell<u32, String, Skid>,
     pub lookup: Rc<RefCell<Lookup>>,
 }
 
 impl<'a> Carriage {
-    pub fn new(map: SichtCell<String, u32, Crate>, lookup: Lookup) -> Self {
+    pub fn new(map: SichtCell<u32, String, Crate>, lookup: Lookup) -> Self {
         Self {
             map,
             traversed: SichtCell::default(),
@@ -82,23 +81,16 @@ impl<'a> Carriage {
     }
 
     pub fn process_crates(&mut self, entry: impl Read) {
-        let mut lookup = BTreeMap::default();
         let map = Reader::from_reader(entry)
             .deserialize::<Kiste>()
+            .filter_map(|cr| cr.ok())
             .map(|cr| {
-                if let Ok(c) = cr {
-                    lookup.insert(c.id, c.name.clone());
-                    (
-                        Oder::<String, u32>::new(c.name.clone(), c.id),
-                        Crate::new(c.to_owned()),
-                    )
-                } else {
-                    todo!()
-                }
+                let name = cr.name.to_owned();
+                (cr.id, name, Crate::new(cr.to_owned()))
             })
             .collect();
 
-        self.map = SichtCell::new(map);
+        self.map = SichtCell::new(map)
     }
 
     #[allow(clippy::unused_self)]
@@ -160,11 +152,7 @@ impl<'a> Carriage {
         dependency: u32,
         dependency_name: String,
     ) {
-        if let Some(cr) = self
-            .map
-            .borrow_mut()
-            .get_with_both_keys(Oder::new(krate_name, krate))
-        {
+        if let Some(cr) = self.map.borrow_mut().get(&krate) {
             cr.add_dependency(dependency, &dependency_name);
         } else {
             todo!()
@@ -172,7 +160,9 @@ impl<'a> Carriage {
     }
 
     pub fn search(&self, krate: &'a str) -> Option<UnrolledCrate> {
-        let root = self.map.borrow().get_with_base_key(&krate).cloned();
+        let krate_id = self.lookup.borrow();
+        let krate_id = krate_id.get_crate_id(krate)?;
+        let root = self.map.borrow().get(krate_id).cloned();
         root.map(|r| self.generate_from_crate(r))
     }
 
@@ -183,36 +173,31 @@ impl<'a> Carriage {
             dependents: krate
                 .dependencies
                 .borrow()
-                .into_iter()
-                .filter_map(|(Oder { left, right }, _)| {
-                    left.as_ref()
-                        .zip(right.as_ref())
-                        .and_then(|(l, r)| self.generate_if_not_traversed(&l, *r))
-                })
+                .iter()
+                .filter_map(|(krate, _)| self.generate_if_not_traversed(*krate))
                 .collect(),
         }
     }
 
     pub fn generate_from_crate_name(&'a self, krate_name: &str) -> Option<UnrolledCrate> {
         let map = self.map.borrow();
-        let krate = map.get_with_base_key(&krate_name)?;
+        let krate = map.get_with_outer_key(krate_name)?;
         Some(UnrolledCrate {
             crate_id: krate.krate.id,
-            name: krate.krate.name,
+            name: krate_name.to_owned(),
             dependents: krate
                 .dependencies
                 .borrow()
                 .iter()
-                .filter_map(|(Oder { left, right }, _)| {
-                    left.zip(right.as_ref())
-                        .and_then(|(l, r)| self.generate_if_not_traversed(&l, *r))
-                })
+                .filter_map(|(krate, _)| self.generate_if_not_traversed(*krate))
                 .collect(),
         })
     }
 
-    pub fn generate_if_not_traversed(&self, krate: &str, crate_id: u32) -> Option<UnrolledCrate> {
-        if self.traversed.borrow().contains_both_keys(krate, crate_id) {
+    pub fn generate_if_not_traversed(&self, crate_id: u32) -> Option<UnrolledCrate> {
+        let lookup = self.lookup.borrow();
+        let krate = lookup.get_crate_name(crate_id)?;
+        if self.traversed.borrow().contains_key(&crate_id) {
             Some(UnrolledCrate {
                 crate_id: crate_id.to_owned(),
                 name: krate.to_owned(),

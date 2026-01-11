@@ -1,13 +1,12 @@
 use crate::carriage::Carriage;
 use crate::store::{Crate, Kiste, Skid};
 use serde::{Serialize, Serializer, ser::SerializeMap};
-use sicht::selector::Oder;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
 pub struct CarriageSer {
-    pub map: Rc<RefCell<BTreeMap<(String, u32), CrateSer>>>,
+    pub map: Rc<RefCell<BTreeMap<u32, CrateSer>>>,
 }
 
 impl<'a> From<Carriage> for CarriageSer {
@@ -16,13 +15,7 @@ impl<'a> From<Carriage> for CarriageSer {
             .map
             .borrow()
             .iter()
-            .filter_map(|(od, v)| match od {
-                Oder {
-                    left: Some(k),
-                    right: Some(o),
-                } => Some(((String::from(k), *o), CrateSer::from(v.clone()))),
-                _ => None,
-            })
+            .map(|(od, v): (&u32, &Crate)| (*od, CrateSer::from(v.clone())))
             .collect();
 
         Self {
@@ -38,8 +31,8 @@ impl<'a> Serialize for CarriageSer {
     {
         let len = self.map.borrow().len();
         let mut map = serializer.serialize_map(Some(len))?;
-        self.map.borrow().iter().for_each(|((k, o), v)| {
-            map.serialize_entry(&(k, o), &v);
+        self.map.borrow().iter().for_each(|(k, v)| {
+            map.serialize_entry(&k, &v);
         });
         map.end()
     }
@@ -47,7 +40,7 @@ impl<'a> Serialize for CarriageSer {
 
 pub struct CrateSer {
     krate: Kiste,
-    dependencies: Rc<RefCell<BTreeMap<(String, u32), Skid>>>,
+    dependencies: Rc<RefCell<BTreeMap<u32, Skid>>>,
 }
 
 impl From<Crate> for CrateSer {
@@ -56,10 +49,7 @@ impl From<Crate> for CrateSer {
             .dependencies
             .borrow()
             .iter()
-            .map(|(Oder { left, right }, d)| match (left, right) {
-                (Some(l), Some(r)) => (((l).to_owned(), *r), d.to_owned()),
-                _ => todo!(),
-            })
+            .map(|(k, d)| (*k, d.to_owned()))
             .collect();
 
         CrateSer {

@@ -29,10 +29,10 @@ where
     }
 }
 
-impl<'a, K, O, V> Debug for SichtCell<K, O, V>
+impl<K, O, V> Debug for SichtCell<K, O, V>
 where
     K: Ord + Clone + Debug,
-    O: Ord + Clone + Debug,
+    O: Ord + Clone,
     V: Debug,
     Rc<RefCell<SichtMap<K, O, V>>>: Debug,
 {
@@ -41,7 +41,7 @@ where
     }
 }
 
-impl<'a, K, O, V> Default for SichtCell<K, O, V>
+impl<K, O, V> Default for SichtCell<K, O, V>
 where
     K: Ord + Clone + Default,
     O: Ord + Clone + Default,
@@ -54,7 +54,7 @@ where
 impl<'de, 'a, K, O, V> Deserialize<'de> for SichtCell<K, O, V>
 where
     K: Ord + Derow<'de, Target: Ord> + Deserialize<'de> + Clone + 'de,
-    O: Ord + Derow<'de, Target: Ord> + Deserialize<'de> + Clone + 'de,
+    O: Ord + Clone + 'de,
     V: Debug + 'de,
     SichtMap<K, O, V>: Deserialize<'de> + 'de,
     Self: 'de,

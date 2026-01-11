@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 #[derive(Debug, Clone)]
 pub struct Crate {
     pub krate: Kiste,
-    pub dependencies: SichtCell<String, u32, Skid>,
+    pub dependencies: SichtCell<u32, String, Skid>,
 }
 impl Crate {
     pub fn new(krate: Kiste) -> Self {
@@ -19,8 +19,8 @@ impl Crate {
 
     pub fn add_dependency(&self, key: u32, krate_name: &str) {
         self.dependencies.borrow_mut().insert_with_both_keys(
-            krate_name.to_owned(),
             key,
+            krate_name.to_owned(),
             Skid::new_with_dependency(key),
         );
     }
