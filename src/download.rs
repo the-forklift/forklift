@@ -15,13 +15,13 @@ pub struct Engine {
 }
 
 impl Ignition {
-    pub fn init<'a>(query: Query) -> Result<Engine> {
+    pub fn init(query: Query) -> Result<Engine> {
         let mut mast = Mast::path("db-dump.tar.gz");
         let carriage = mast.load()?;
         Ok(Engine::new(query, carriage))
     }
 
-    pub fn init_with_config<'a>(query: Query, config: Config) -> Result<Engine> {
+    pub fn init_with_config(query: Query, config: Config) -> Result<Engine> {
         let carriage = Mast::path("db-dump.tar.gz").config(config).load()?;
         Ok(Engine::new(query, carriage))
     }

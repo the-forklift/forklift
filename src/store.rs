@@ -118,20 +118,20 @@ impl<'de> Deserialize<'de> for Crate {
         D: Deserializer<'de>,
     {
         struct CrateVisitor<'a> {
-            map: PhantomData<&'a ()>,
-            lookup: PhantomData<&'a ()>,
+            krate: PhantomData<&'a ()>,
+            dependencies: PhantomData<&'a ()>,
         }
 
         impl CrateVisitor<'_> {
             fn new() -> Self {
                 Self {
-                    map: PhantomData,
-                    lookup: PhantomData,
+                    krate: PhantomData,
+                    dependencies: PhantomData,
                 }
             }
         }
 
-        impl<'de, 'a> Visitor<'de> for CrateVisitor<'a> {
+        impl Visitor<'_> for CrateVisitor<'_> {
             type Value = Crate;
 
             fn expecting(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {

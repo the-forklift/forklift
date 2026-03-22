@@ -11,7 +11,7 @@ where
     K: Ord + Clone,
     O: Ord + Clone;
 
-impl<'a, K, O, V> SichtCell<K, O, V>
+impl<K, O, V> SichtCell<K, O, V>
 where
     K: Ord + Clone,
     O: Ord + Clone,
@@ -51,7 +51,7 @@ where
     }
 }
 
-impl<'de, 'a, K, O, V> Deserialize<'de> for SichtCell<K, O, V>
+impl<'de, K, O, V> Deserialize<'de> for SichtCell<K, O, V>
 where
     K: Ord + Derow<'de, Target: Ord> + Deserialize<'de> + Clone + 'de,
     O: Ord + Clone + 'de,

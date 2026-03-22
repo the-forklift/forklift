@@ -9,8 +9,8 @@ pub struct CarriageSer {
     pub map: Rc<RefCell<BTreeMap<u32, CrateSer>>>,
 }
 
-impl<'a> From<Carriage> for CarriageSer {
-    fn from(x: Carriage) -> Self {
+impl CarriageSer {
+    pub fn from_carriage(x: &Carriage) -> Self {
         let map = x
             .map
             .borrow()
@@ -24,7 +24,7 @@ impl<'a> From<Carriage> for CarriageSer {
     }
 }
 
-impl<'a> Serialize for CarriageSer {
+impl Serialize for CarriageSer {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -32,7 +32,7 @@ impl<'a> Serialize for CarriageSer {
         let len = self.map.borrow().len();
         let mut map = serializer.serialize_map(Some(len))?;
         self.map.borrow().iter().for_each(|(k, v)| {
-            map.serialize_entry(&k, &v);
+            let _ = map.serialize_entry(&k, &v);
         });
         map.end()
     }

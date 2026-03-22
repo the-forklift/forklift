@@ -5,7 +5,11 @@ use crate::store::{Crate, Depencil, Kiste, Lesart, UnrolledCrate};
 use anyhow::Result;
 use csv::Reader;
 use flate2::read::GzDecoder;
-use serde::{Deserialize, Deserializer, de::Visitor};
+use serde::{
+    Deserialize, Deserializer,
+    de::{MapAccess, Visitor},
+};
+use sicht::SichtMap;
 use std::collections::{BTreeMap, btree_map::IntoIter};
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
@@ -26,6 +30,14 @@ impl<'a> Carriage {
             map,
             traversed: SichtCell::default(),
             lookup: Rc::new(RefCell::new(lookup)),
+        }
+    }
+
+    pub fn from_map(map: SichtCell<u32, String, Crate>) -> Self {
+        Self {
+            map,
+            traversed: SichtCell::default(),
+            lookup: Rc::default(),
         }
     }
 
@@ -69,28 +81,26 @@ impl<'a> Carriage {
     }
 
     fn process_crate_information(&'a mut self, order: IntoIter<usize, impl Read>) {
-        order.for_each(|(i, ent)| {
-            match i {
-                1 => {
-                    self.process_dependencies(ent);
-                }
-                2 => self.process_versions(ent),
-                _ => unreachable!(),
-            };
+        order.for_each(|(i, ent)| match i {
+            1 => {
+                self.process_dependencies(ent);
+            }
+            2 => self.process_versions(ent),
+            _ => unreachable!(),
         });
     }
 
     pub fn process_crates(&mut self, entry: impl Read) {
         let map = Reader::from_reader(entry)
             .deserialize::<Kiste>()
-            .filter_map(|cr| cr.ok())
+            .filter_map(Result::ok)
             .map(|cr| {
-                let name = cr.name.to_owned();
-                (cr.id, name, Crate::new(cr.to_owned()))
+                let name = cr.name.clone();
+                (cr.id, name, Crate::new(cr.clone()))
             })
             .collect();
 
-        self.map = SichtCell::new(map)
+        self.map = SichtCell::new(map);
     }
 
     #[allow(clippy::unused_self)]
@@ -125,17 +135,12 @@ impl<'a> Carriage {
                         .borrow()
                         .get_dependency_relation_for_version(d.version_id)
                         .copied();
-                    if let Some(krate_name) = krate_name
+                    if let Some(_) = krate_name
                         && let Some(dependency) = dependency
                         && let Some(dependency_name) =
                             self.lookup.borrow().get_crate_name(dependency)
                     {
-                        self.add_dependency(
-                            d.crate_id,
-                            krate_name,
-                            dependency,
-                            dependency_name.to_owned(),
-                        );
+                        self.add_dependency(d.crate_id, dependency, dependency_name);
                     } else {
                         todo!()
                     }
@@ -145,21 +150,15 @@ impl<'a> Carriage {
             });
     }
 
-    pub fn add_dependency(
-        &'a self,
-        krate: u32,
-        krate_name: String,
-        dependency: u32,
-        dependency_name: String,
-    ) {
+    pub fn add_dependency(&'a self, krate: u32, dependency: u32, dependency_name: &str) {
         if let Some(cr) = self.map.borrow_mut().get(&krate) {
-            cr.add_dependency(dependency, &dependency_name);
+            cr.add_dependency(dependency, dependency_name);
         } else {
             todo!()
         }
     }
 
-    pub fn search(&self, krate: &'a str) -> Option<UnrolledCrate> {
+    pub fn search(&self, krate: &String) -> Option<UnrolledCrate> {
         let krate_id = self.lookup.borrow();
         let krate_id = krate_id.get_crate_id(krate)?;
         let root = self.map.borrow().get(krate_id).cloned();
@@ -179,7 +178,7 @@ impl<'a> Carriage {
         }
     }
 
-    pub fn generate_from_crate_name(&'a self, krate_name: &str) -> Option<UnrolledCrate> {
+    pub fn generate_from_crate_name(&'a self, krate_name: &String) -> Option<UnrolledCrate> {
         let map = self.map.borrow();
         let krate = map.get_with_outer_key(krate_name)?;
         Some(UnrolledCrate {
@@ -214,28 +213,54 @@ impl<'de> Deserialize<'de> for Carriage {
     where
         D: Deserializer<'de>,
     {
-        struct CarriageVisitor {
-            map: (),
-            lookup: (),
+        struct CarriageVisitor<K, O, V>
+        where
+            K: Clone + Ord,
+            O: Clone + Ord,
+        {
+            map: SichtMap<K, O, V>,
+            traversed: (),
+            lookup: SichtMap<K, O, V>,
         }
 
-        impl CarriageVisitor {
+        impl<K, O, V> CarriageVisitor<K, O, V>
+        where
+            K: Clone + Ord,
+            O: Clone + Ord,
+        {
             fn new() -> Self {
                 Self {
-                    map: (),
-                    lookup: (),
+                    map: SichtMap::default(),
+                    traversed: (),
+                    lookup: SichtMap::default(),
                 }
             }
         }
 
-        impl<'de, 'a> Visitor<'de> for CarriageVisitor {
+        impl<'df, K, O, V> Visitor<'df> for CarriageVisitor<K, O, V>
+        where
+            K: Clone + Ord,
+            O: Clone + Ord,
+        {
             type Value = Carriage;
 
             fn expecting(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
-                write!(formatter, "Oder left or right are malformed")
+                write!(formatter, "Oder are malformed")
+            }
+
+            fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'df>,
+            {
+                todo!()
+                // Ok(Carriage::from_map(map.into_deserializer()))
             }
         }
 
-        deserializer.deserialize_struct("Carriage", &["map", "lookup"], CarriageVisitor::new())
+        deserializer.deserialize_struct(
+            "Carriage",
+            &["map", "traversed", "lookup"],
+            CarriageVisitor::<u32, String, Crate>::new(),
+        )
     }
 }

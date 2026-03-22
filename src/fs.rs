@@ -36,14 +36,14 @@ impl Mast {
             let _ = file.read_to_end(&mut buffer)?;
             Self::uncrush(buffer)
         } else {
-            let carriage = Carriage::default();
+            let mut carriage = Carriage::default();
             carriage.unarchive(&self.path)?;
-            let _ = Self::store_contents(carriage.into());
+            let _ = Self::store_contents(&CarriageSer::from_carriage(&carriage));
             Ok(carriage)
         }
     }
 
-    pub fn store_contents(contents: CarriageSer) -> Result<()> {
+    pub fn store_contents(contents: &CarriageSer) -> Result<()> {
         let file = OpenOptions::new()
             .write(true)
             .create(true)

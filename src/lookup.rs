@@ -28,11 +28,11 @@ impl Lookup {
     }
 
     #[allow(clippy::redundant_closure_for_method_calls)]
-    pub fn get_crate_name(&self, crate_id: u32) -> Option<&str> {
-        self.krate.get(&crate_id).map(|x| x.as_ref())
+    pub fn get_crate_name(&self, crate_id: u32) -> Option<&String> {
+        self.krate.get(&crate_id)
     }
 
-    pub fn get_crate_id(&self, crate_name: &str) -> Option<&u32> {
+    pub fn get_crate_id(&self, crate_name: &String) -> Option<&u32> {
         self.krate.get_urbild(crate_name)
     }
 
