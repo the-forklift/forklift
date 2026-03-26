@@ -17,27 +17,27 @@ use std::{cell::RefCell, rc::Rc};
 use std::{fs::File, io::Read};
 use tar::Archive;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct Carriage {
-    pub map: SichtCell<u32, String, Crate>,
-    pub traversed: SichtCell<u32, String, Skid>,
-    pub lookup: Rc<RefCell<Lookup>>,
+    pub map: SichtCell<SichtMap<u32, String, Crate>>,
+    pub traversed: SichtCell<SichtMap<u32, String, Skid>>,
+    pub lookup: SichtCell<Lookup>,
 }
 
 impl<'a> Carriage {
-    pub fn new(map: SichtCell<u32, String, Crate>, lookup: Lookup) -> Self {
+    pub fn new(map: SichtCell<SichtMap<u32, String, Crate>>, lookup: Lookup) -> Self {
         Self {
             map,
             traversed: SichtCell::default(),
-            lookup: Rc::new(RefCell::new(lookup)),
+            lookup: SichtCell::new(lookup),
         }
     }
 
-    pub fn from_map(map: SichtCell<u32, String, Crate>) -> Self {
+    pub fn from_map(map: SichtCell<SichtMap<u32, String, Crate>>) -> Self {
         Self {
             map,
             traversed: SichtCell::default(),
-            lookup: Rc::default(),
+            lookup: SichtCell::default(),
         }
     }
 
@@ -207,7 +207,7 @@ impl<'a> Carriage {
         }
     }
 }
-
+/*
 impl<'de> Deserialize<'de> for Carriage {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -252,8 +252,7 @@ impl<'de> Deserialize<'de> for Carriage {
             where
                 A: MapAccess<'df>,
             {
-                todo!()
-                // Ok(Carriage::from_map(map.into_deserializer()))
+                self.map = SichtMap::deserialize(map);
             }
         }
 
@@ -264,3 +263,4 @@ impl<'de> Deserialize<'de> for Carriage {
         )
     }
 }
+*/

@@ -1,69 +1,54 @@
 use kuh::Derow;
 use serde::{Deserialize, Deserializer};
-use sicht::SichtMap;
 use std::cell::{Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 
 #[derive(Clone)]
-pub struct SichtCell<K, O, V>(Rc<RefCell<SichtMap<K, O, V>>>)
-where
-    K: Ord + Clone,
-    O: Ord + Clone;
+pub struct SichtCell<T>(Rc<RefCell<T>>);
 
-impl<K, O, V> SichtCell<K, O, V>
-where
-    K: Ord + Clone,
-    O: Ord + Clone,
-{
-    pub fn new(map: SichtMap<K, O, V>) -> Self {
+impl<T> SichtCell<T> {
+    pub fn new(map: T) -> Self {
         Self(Rc::new(RefCell::new(map)))
     }
 
-    pub fn borrow(&self) -> Ref<'_, SichtMap<K, O, V>> {
+    pub fn borrow(&self) -> Ref<'_, T> {
         self.0.borrow()
     }
 
-    pub fn borrow_mut(&self) -> RefMut<'_, SichtMap<K, O, V>> {
+    pub fn borrow_mut(&self) -> RefMut<'_, T> {
         self.0.borrow_mut()
     }
 }
 
-impl<K, O, V> Debug for SichtCell<K, O, V>
+impl<T> Debug for SichtCell<T>
 where
-    K: Ord + Clone + Debug,
-    O: Ord + Clone,
-    V: Debug,
-    Rc<RefCell<SichtMap<K, O, V>>>: Debug,
+    T: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl<K, O, V> Default for SichtCell<K, O, V>
+impl<T> Default for SichtCell<T>
 where
-    K: Ord + Clone + Default,
-    O: Ord + Clone + Default,
+    T: Default,
 {
     fn default() -> Self {
         SichtCell(Rc::default())
     }
 }
 
-impl<'de, K, O, V> Deserialize<'de> for SichtCell<K, O, V>
+impl<'de, T> Deserialize<'de> for SichtCell<T>
 where
-    K: Ord + Derow<'de, Target: Ord> + Deserialize<'de> + Clone + 'de,
-    O: Ord + Clone + 'de,
-    V: Debug + 'de,
-    SichtMap<K, O, V>: Deserialize<'de> + 'de,
+    T: Deserialize<'de> + 'de,
     Self: 'de,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let map = SichtMap::deserialize(deserializer)?;
+        let map = T::deserialize(deserializer)?;
         Ok(Self::new(map))
     }
 }

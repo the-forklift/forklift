@@ -1,13 +1,14 @@
 use crate::cell::SichtCell;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize};
+use sicht::SichtMap;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 
 #[derive(Debug, Clone)]
 pub struct Crate {
     pub krate: Kiste,
-    pub dependencies: SichtCell<u32, String, Skid>,
+    pub dependencies: SichtCell<SichtMap<u32, String, Skid>>,
 }
 impl Crate {
     pub fn new(krate: Kiste) -> Self {
