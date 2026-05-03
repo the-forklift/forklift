@@ -23,6 +23,10 @@ impl Lookup {
         self.dependency.insert(crate_id, dependency);
     }
 
+    pub fn seed_dependencies(&mut self, dependencies: BTreeMap<u32, u32>) {
+        self.dependency = dependencies;
+    }
+
     pub fn get_dependency(&self, crate_id: u32) -> Option<&u32> {
         self.dependency.get(&crate_id)
     }

@@ -11,6 +11,9 @@ pub trait Crusher: Sized {
 impl Crusher for Mast {
     type Floam = Carriage;
     fn uncrush(contents: Vec<u8>) -> Result<Self::Floam> {
-        ron::de::from_bytes(&contents).map_err(Error::msg)
+        let _ = dbg!(String::from_utf8(contents));
+        // let _ = dbg!(String::from_utf8(contents.iter().take(7).map(|x| *x).collect::<Vec<u8>>()));
+        todo!()
+        // let err = dbg!(ron::de::from_bytes(&contents)).map_err(Error::msg);
     }
 }

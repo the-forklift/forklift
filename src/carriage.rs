@@ -1,19 +1,16 @@
 use crate::cell::SichtCell;
 use crate::lookup::Lookup;
 use crate::store::Skid;
-use crate::store::{Crate, Depencil, Kiste, Lesart, UnrolledCrate};
+use crate::store::{Cdv, Crate, Depencil, Kiste, Lesart, UnrolledCrate};
+use anyhow::Error;
 use anyhow::Result;
 use csv::Reader;
 use flate2::read::GzDecoder;
-use serde::{
-    Deserialize, Deserializer,
-    de::{MapAccess, Visitor},
-};
+use serde::Deserialize;
 use sicht::SichtMap;
-use std::collections::{BTreeMap, btree_map::IntoIter};
-use std::fmt::{Debug, Formatter};
+use std::collections::BTreeMap;
+use std::fmt::Debug;
 use std::path::Path;
-use std::{cell::RefCell, rc::Rc};
 use std::{fs::File, io::Read};
 use tar::Archive;
 
@@ -33,119 +30,78 @@ impl<'a> Carriage {
         }
     }
 
-    pub fn from_map(map: SichtCell<SichtMap<u32, String, Crate>>) -> Self {
+    pub fn from_map(map: SichtMap<u32, String, Crate>) -> Self {
         Self {
-            map,
+            map: SichtCell::new(map),
             traversed: SichtCell::default(),
             lookup: SichtCell::default(),
         }
     }
 
-    pub fn unarchive<P: AsRef<Path>>(&'a mut self, path: P) -> Result<(), anyhow::Error> {
+    pub fn unarchive<P: AsRef<Path>>(path: P) -> Result<Self, anyhow::Error> {
         let file = File::open(path)?;
         let mut archive = Archive::new(GzDecoder::new(file));
-        let order = archive
-            .entries()
-            .unwrap()
-            .filter_map(|e| match e {
+        let cdv = archive.entries()?.fold(Cdv::default(), |mut cdv, e| {
+            match e {
                 Ok(e)
                     if let Ok(p) = e.path()
                         && p.ends_with("crates.csv") =>
                 {
-                    Some((0, e))
-                }
-                Ok(e)
-                    if let Ok(p) = e.path()
-                        && p.ends_with("versions.csv") =>
-                {
-                    Some((1, e))
+                    cdv.crates = Reader::from_reader(e)
+                        .deserialize::<Kiste>()
+                        .filter_map(Result::ok)
+                        .map(|cr| {
+                            let name = cr.name.clone();
+                            (cr.id, name, Crate::new(cr.clone()))
+                        })
+                        .collect::<SichtMap<u32, String, Crate>>();
                 }
                 Ok(e)
                     if let Ok(p) = e.path()
                         && p.ends_with("dependencies.csv") =>
                 {
-                    Some((2, e))
+                    cdv.dependencies = Reader::from_reader(e)
+                        .deserialize::<Depencil>()
+                        .filter_map(Result::ok)
+                        .map(|dep| (dep.crate_id, dep.version_id))
+                        .collect::<BTreeMap<u32, u32>>();
                 }
-                _ => None,
-            })
-            .collect::<BTreeMap<usize, _>>();
 
-        let mut order = order.into_iter();
-        let (_, ent) = order.next().unwrap();
-
-        self.process_crates(ent);
-
-        self.process_crate_information(order);
-
-        Ok(())
-    }
-
-    fn process_crate_information(&'a mut self, order: IntoIter<usize, impl Read>) {
-        order.for_each(|(i, ent)| match i {
-            1 => {
-                self.process_dependencies(ent);
-            }
-            2 => self.process_versions(ent),
-            _ => unreachable!(),
-        });
-    }
-
-    pub fn process_crates(&mut self, entry: impl Read) {
-        let map = Reader::from_reader(entry)
-            .deserialize::<Kiste>()
-            .filter_map(Result::ok)
-            .map(|cr| {
-                let name = cr.name.clone();
-                (cr.id, name, Crate::new(cr.clone()))
-            })
-            .collect();
-
-        self.map = SichtCell::new(map);
-    }
-
-    #[allow(clippy::unused_self)]
-    pub fn process_versions(&self, entry: impl Read) {
-        Reader::from_reader(entry)
-            .deserialize::<Lesart>()
-            .for_each(|ver| {
-                if let Ok(ref v) = ver
-                    && let Some(crate_id) = v.crate_id
+                Ok(e)
+                    if let Ok(p) = e.path()
+                        && p.ends_with("versions.csv") =>
                 {
-                    self.lookup
-                        .borrow_mut()
-                        .insert_dependency_relation(v.id, crate_id);
-                } else {
-                    todo!()
+                    cdv.versions = Reader::from_reader(e)
+                        .deserialize::<Lesart>()
+                        .filter_map(Result::ok)
+                        .filter_map(|ver| ver.crate_id.map(|c_id| (ver.id, c_id)))
+                        .collect::<BTreeMap<u32, u32>>();
                 }
-            });
+
+                _ => {}
+            }
+
+            cdv
+        });
+        Ok(cdv.process_to_carriage())
     }
 
-    pub fn process_dependencies(&'a self, entry: impl Read) {
-        Reader::from_reader(entry)
-            .deserialize::<Depencil>()
-            .for_each(|dep| {
-                if let Ok(ref d) = dep {
-                    let krate_name = self
-                        .lookup
-                        .borrow()
-                        .get_crate_name(d.crate_id)
-                        .map(ToOwned::to_owned);
-                    let dependency = self
-                        .lookup
-                        .borrow()
-                        .get_dependency_relation_for_version(d.version_id)
-                        .copied();
-                    if let Some(_) = krate_name
-                        && let Some(dependency) = dependency
-                        && let Some(dependency_name) =
-                            self.lookup.borrow().get_crate_name(dependency)
-                    {
-                        self.add_dependency(d.crate_id, dependency, dependency_name);
-                    } else {
-                        todo!()
-                    }
-                } else {
-                    todo!()
+    pub fn process_versions(&self, versions: BTreeMap<u32, u32>) {
+        self.lookup.borrow_mut().seed_dependencies(versions);
+    }
+
+    pub fn process_dependencies(&self, dependencies: BTreeMap<u32, u32>) {
+        let lookup = self.lookup.borrow();
+        dependencies
+            .into_iter()
+            .filter_map(|(crate_id, version_id)| {
+                lookup
+                    .get_dependency_relation_for_version(version_id)
+                    .map(|x| (crate_id, x))
+            })
+            .for_each(|(crate_id, dependency)| {
+                if let Some(dependency_name) = lookup.get_crate_name(*dependency) {
+                    self.add_dependency(crate_id, *dependency, dependency_name);
                 }
             });
     }
@@ -207,6 +163,7 @@ impl<'a> Carriage {
         }
     }
 }
+
 /*
 impl<'de> Deserialize<'de> for Carriage {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

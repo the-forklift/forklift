@@ -36,8 +36,7 @@ impl Mast {
             let _ = file.read_to_end(&mut buffer)?;
             Self::uncrush(buffer)
         } else {
-            let mut carriage = Carriage::default();
-            carriage.unarchive(&self.path)?;
+            let carriage = Carriage::unarchive(&self.path)?;
             let _ = Self::store_contents(&CarriageSer::from_carriage(&carriage));
             Ok(carriage)
         }

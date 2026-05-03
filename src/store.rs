@@ -1,7 +1,9 @@
+use crate::carriage::Carriage;
 use crate::cell::SichtCell;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize};
 use sicht::SichtMap;
+use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 
@@ -141,5 +143,27 @@ impl<'de> Deserialize<'de> for Crate {
         }
 
         deserializer.deserialize_struct("Crate", &["krate", "dependencies"], CrateVisitor::new())
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Cdv {
+    pub crates: SichtMap<u32, String, Crate>,
+    pub dependencies: BTreeMap<u32, u32>,
+    pub versions: BTreeMap<u32, u32>,
+}
+impl Cdv {
+    pub fn process_to_carriage(self) -> Carriage {
+        let Cdv {
+            crates,
+            dependencies,
+            versions,
+        } = self;
+
+        let carriage = Carriage::from_map(crates);
+        carriage.process_versions(versions);
+        carriage.process_dependencies(dependencies);
+
+        carriage
     }
 }
