@@ -1,6 +1,6 @@
 use crate::carriage::Carriage;
 use crate::store::{Crate, Kiste, Skid};
-use serde::{Serialize, Serializer, ser::SerializeMap};
+use serde::{Serialize, Serializer, ser::SerializeMap, ser::SerializeStruct};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -64,6 +64,9 @@ impl Serialize for CrateSer {
     where
         S: Serializer,
     {
-        todo!()
+        let mut state = serializer.serialize_struct("CrateSer", 2)?;
+        state.serialize_field("krate", &self.krate)?;
+        state.serialize_field("dependencies", &*self.dependencies.borrow())?;
+        state.end()
     }
 }
