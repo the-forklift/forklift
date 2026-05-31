@@ -1,5 +1,6 @@
 use crate::carriage::Carriage;
 use crate::cell::SichtCell;
+use anyhow::Result;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize};
 use sicht::SichtMap;
@@ -20,11 +21,20 @@ impl Crate {
         }
     }
 
-    pub fn add_dependency(&self, key: u32, krate_name: &str) {
+    pub fn add_dependency(&self, dependency: &Self) {
+        let key = dependency.krate.id;
         self.dependencies.borrow_mut().insert_with_both_keys(
             key,
-            krate_name.to_owned(),
+            dependency.krate.name.clone(),
             Skid::new_with_dependency(key),
+        );
+    }
+
+    pub fn add_dependency_with_fields(&self, dependency_id: u32, dependency_name: &str) {
+        self.dependencies.borrow_mut().insert_with_both_keys(
+            dependency_id,
+            dependency_name.to_owned(),
+            Skid::new_with_dependency(dependency_id),
         );
     }
 }
@@ -153,7 +163,7 @@ pub struct Cdv {
     pub versions: BTreeMap<u32, u32>,
 }
 impl Cdv {
-    pub fn process_to_carriage(self) -> Carriage {
+    pub fn process_to_carriage(self) -> Result<Carriage> {
         let Cdv {
             crates,
             dependencies,
@@ -161,9 +171,7 @@ impl Cdv {
         } = self;
 
         let carriage = Carriage::from_map(crates);
-        carriage.process_versions(versions);
-        carriage.process_dependencies(dependencies);
-
-        carriage
+        let () = carriage.process_dependencies(&dependencies, &versions)?;
+        Ok(carriage)
     }
 }

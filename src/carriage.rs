@@ -2,16 +2,15 @@ use crate::cell::SichtCell;
 use crate::lookup::Lookup;
 use crate::store::Skid;
 use crate::store::{Cdv, Crate, Depencil, Kiste, Lesart, UnrolledCrate};
-use anyhow::Error;
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use csv::Reader;
 use flate2::read::GzDecoder;
 use serde::Deserialize;
 use sicht::SichtMap;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
+use std::fs::File;
 use std::path::Path;
-use std::{fs::File, io::Read};
 use tar::Archive;
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -38,7 +37,7 @@ impl<'a> Carriage {
         }
     }
 
-    pub fn unarchive<P: AsRef<Path>>(path: P) -> Result<Self, anyhow::Error> {
+    pub fn unarchive<P: AsRef<Path>>(path: P) -> Result<Self> {
         let file = File::open(path)?;
         let mut archive = Archive::new(GzDecoder::new(file));
         let cdv = archive.entries()?.fold(Cdv::default(), |mut cdv, e| {
@@ -83,32 +82,39 @@ impl<'a> Carriage {
 
             cdv
         });
-        Ok(cdv.process_to_carriage())
+        cdv.process_to_carriage()
     }
 
-    pub fn process_versions(&self, versions: BTreeMap<u32, u32>) {
-        self.lookup.borrow_mut().seed_dependencies(versions);
-    }
-
-    pub fn process_dependencies(&self, dependencies: BTreeMap<u32, u32>) {
-        let lookup = self.lookup.borrow();
+    pub fn process_dependencies(
+        &self,
+        dependencies: &BTreeMap<u32, u32>,
+        versions: &BTreeMap<u32, u32>,
+    ) -> Result<(), anyhow::Error> {
         dependencies
-            .into_iter()
-            .filter_map(|(crate_id, version_id)| {
-                lookup
-                    .get_dependency_relation_for_version(version_id)
-                    .map(|x| (crate_id, x))
+            .iter()
+            .try_for_each(|(crate_id, version_id)| {
+                self.add_dependency_to_crate(*crate_id, *version_id, versions)
             })
-            .for_each(|(crate_id, dependency)| {
-                if let Some(dependency_name) = lookup.get_crate_name(*dependency) {
-                    self.add_dependency(crate_id, *dependency, dependency_name);
-                }
-            });
+            .ok_or_else(|| anyhow!("todo"))
+    }
+
+    pub fn add_dependency_to_crate(
+        &self,
+        crate_id: u32,
+        version_id: u32,
+        versions: &BTreeMap<u32, u32>,
+    ) -> Option<()> {
+        let d_id = versions.get(&version_id)?;
+        let map = self.map.borrow();
+        let krate = map.get_with_base_key(&crate_id)?;
+        let dependency = map.get_with_base_key(d_id)?;
+        krate.add_dependency(dependency);
+        Some(())
     }
 
     pub fn add_dependency(&'a self, krate: u32, dependency: u32, dependency_name: &str) {
         if let Some(cr) = self.map.borrow_mut().get(&krate) {
-            cr.add_dependency(dependency, dependency_name);
+            cr.add_dependency_with_fields(dependency, dependency_name);
         } else {
             todo!()
         }

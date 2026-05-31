@@ -37,7 +37,6 @@ impl Engine {
     }
 
     pub fn process_output(&self) -> Result<()> {
-        dbg!(&self.carriage);
         todo!("next stage")
     }
 }
