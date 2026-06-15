@@ -22,6 +22,7 @@ impl Crate {
     }
 
     pub fn add_dependency(&self, dependency: &Self) {
+        // dbg!(&self, &dependency);
         let key = dependency.krate.id;
         self.dependencies.borrow_mut().insert_with_both_keys(
             key,
@@ -159,7 +160,7 @@ impl<'de> Deserialize<'de> for Crate {
 #[derive(Clone, Debug, Default)]
 pub struct Cdv {
     pub crates: SichtMap<u32, String, Crate>,
-    pub dependencies: BTreeMap<u32, u32>,
+    pub dependencies: BTreeMap<u32, Vec<u32>>,
     pub versions: BTreeMap<u32, u32>,
 }
 impl Cdv {

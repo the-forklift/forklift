@@ -381,7 +381,6 @@ dependencies = [
 name = "sicht"
 version = "0.1.0"
 dependencies = [
- "kuh",
  "serde",
  "serde_derive",
 ]

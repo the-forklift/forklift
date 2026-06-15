@@ -62,8 +62,12 @@ impl<'a> Carriage {
                     cdv.dependencies = Reader::from_reader(e)
                         .deserialize::<Depencil>()
                         .filter_map(Result::ok)
-                        .map(|dep| (dep.crate_id, dep.version_id))
-                        .collect::<BTreeMap<u32, u32>>();
+                        .fold(BTreeMap::<u32, Vec<u32>>::default(), |mut deps, dep| {
+                            deps.entry(dep.id)
+                                .and_modify(|v| v.push(dep.version_id))
+                                .or_insert(vec![dep.version_id]);
+                            deps
+                        });
                 }
 
                 Ok(e)
@@ -87,13 +91,15 @@ impl<'a> Carriage {
 
     pub fn process_dependencies(
         &self,
-        dependencies: &BTreeMap<u32, u32>,
-        versions: &BTreeMap<u32, u32>,
+        dependencies: &BTreeMap<u32, Vec<u32>>,
+        version_list: &BTreeMap<u32, u32>,
     ) -> Result<(), anyhow::Error> {
         dependencies
             .iter()
-            .try_for_each(|(crate_id, version_id)| {
-                self.add_dependency_to_crate(*crate_id, *version_id, versions)
+            .try_for_each(|(crate_id, versions)| {
+                versions
+                    .iter()
+                    .try_for_each(|ver| self.add_dependency_to_crate(*crate_id, *ver, version_list))
             })
             .ok_or_else(|| anyhow!("todo"))
     }
