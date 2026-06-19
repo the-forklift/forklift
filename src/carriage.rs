@@ -63,9 +63,9 @@ impl<'a> Carriage {
                         .deserialize::<Depencil>()
                         .filter_map(Result::ok)
                         .fold(BTreeMap::<u32, Vec<u32>>::default(), |mut deps, dep| {
-                            deps.entry(dep.id)
-                                .and_modify(|v| v.push(dep.version_id))
-                                .or_insert(vec![dep.version_id]);
+                            deps.entry(dep.version_id)
+                                .and_modify(|v| v.push(dep.crate_id))
+                                .or_insert_with(|| vec![dep.crate_id]);
                             deps
                         });
                 }
@@ -86,44 +86,33 @@ impl<'a> Carriage {
 
             cdv
         });
-        cdv.process_to_carriage()
+        Ok(cdv.process_to_carriage())
     }
 
+    #[allow(clippy::needless_for_each)]
     pub fn process_dependencies(
         &self,
         dependencies: &BTreeMap<u32, Vec<u32>>,
-        version_list: &BTreeMap<u32, u32>,
-    ) -> Result<(), anyhow::Error> {
-        dependencies
-            .iter()
-            .try_for_each(|(crate_id, versions)| {
-                versions
-                    .iter()
-                    .try_for_each(|ver| self.add_dependency_to_crate(*crate_id, *ver, version_list))
-            })
-            .ok_or_else(|| anyhow!("todo"))
+        crates_list: &BTreeMap<u32, u32>,
+    ) {
+        dependencies.iter().for_each(|(version_id, crates)| {
+            crates
+                .iter()
+                .for_each(|ver| self.add_dependency_to_crate(*version_id, *ver, crates_list));
+        });
     }
 
     pub fn add_dependency_to_crate(
         &self,
-        crate_id: u32,
         version_id: u32,
-        versions: &BTreeMap<u32, u32>,
-    ) -> Option<()> {
-        let d_id = versions.get(&version_id)?;
+        crate_id: u32,
+        crates: &BTreeMap<u32, u32>,
+    ) {
+        let d_id = crates.get(&version_id).unwrap();
         let map = self.map.borrow();
-        let krate = map.get_with_base_key(&crate_id)?;
-        let dependency = map.get_with_base_key(d_id)?;
+        let krate = map.get_with_base_key(&crate_id).unwrap();
+        let dependency = map.get_with_base_key(d_id).unwrap();
         krate.add_dependency(dependency);
-        Some(())
-    }
-
-    pub fn add_dependency(&'a self, krate: u32, dependency: u32, dependency_name: &str) {
-        if let Some(cr) = self.map.borrow_mut().get(&krate) {
-            cr.add_dependency_with_fields(dependency, dependency_name);
-        } else {
-            todo!()
-        }
     }
 
     pub fn search(&self, krate: &String) -> Option<UnrolledCrate> {

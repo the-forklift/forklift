@@ -164,7 +164,7 @@ pub struct Cdv {
     pub versions: BTreeMap<u32, u32>,
 }
 impl Cdv {
-    pub fn process_to_carriage(self) -> Result<Carriage> {
+    pub fn process_to_carriage(self) -> Carriage {
         let Cdv {
             crates,
             dependencies,
@@ -172,7 +172,7 @@ impl Cdv {
         } = self;
 
         let carriage = Carriage::from_map(crates);
-        let () = carriage.process_dependencies(&dependencies, &versions)?;
-        Ok(carriage)
+        carriage.process_dependencies(&dependencies, &versions);
+        carriage
     }
 }
