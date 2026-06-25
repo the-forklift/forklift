@@ -2,10 +2,9 @@ use crate::cell::SichtCell;
 use crate::lookup::Lookup;
 use crate::store::Skid;
 use crate::store::{Cdv, Crate, Depencil, Kiste, Lesart, UnrolledCrate};
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use csv::Reader;
 use flate2::read::GzDecoder;
-use serde::Deserialize;
 use sicht::SichtMap;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
@@ -13,7 +12,7 @@ use std::fs::File;
 use std::path::Path;
 use tar::Archive;
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default)]
 pub struct Carriage {
     pub map: SichtCell<SichtMap<u32, String, Crate>>,
     pub traversed: SichtCell<SichtMap<u32, String, Skid>>,
@@ -119,6 +118,7 @@ impl<'a> Carriage {
         let krate_id = self.lookup.borrow();
         let krate_id = krate_id.get_crate_id(krate)?;
         let root = self.map.borrow().get(krate_id).cloned();
+        dbg!(&root);
         root.map(|r| self.generate_from_crate(r))
     }
 

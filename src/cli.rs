@@ -47,6 +47,7 @@ pub fn init() -> Result<()> {
             let accumulator: Query = QueryAccumulator::from_input(&q).try_into()?;
             let mut engine = Ignition::init_with_config(accumulator, Config::fresh())?;
             let results = engine.run()?;
+            dbg!(&results);
             engine.process_output()
         }
 

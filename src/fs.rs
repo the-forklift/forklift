@@ -34,21 +34,15 @@ impl Mast {
         {
             let mut buffer = Vec::new();
             let _ = file.read_to_end(&mut buffer)?;
-            Self::uncrush(buffer)
+            Self::uncrush(buffer).map(Into::into)
         } else {
             let carriage = Carriage::unarchive(&self.path)?;
-            let _ = Self::store_contents(&CarriageSer::from_carriage(&carriage));
+            let _ = self.store_contents(&CarriageSer::from_carriage(&carriage));
             Ok(carriage)
         }
     }
 
-    pub fn store_contents(contents: &CarriageSer) -> Result<()> {
-        let file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open("lager.fork")?;
-        ron::ser::to_writer(file, &contents)?;
-        Ok(())
+    pub fn store_contents(&self, contents: &CarriageSer) -> Result<()> {
+        self.crush("lager.fork", contents)
     }
 }

@@ -1,5 +1,6 @@
 #![deny(rust_2018_idioms)]
 #![deny(clippy::pedantic, clippy::dbg_macro)]
+#![feature(associated_type_defaults)]
 
 use anyhow::Result;
 
