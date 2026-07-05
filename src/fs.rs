@@ -1,7 +1,6 @@
 use crate::carriage::Carriage;
 use crate::crusher::Crusher;
 use crate::download::Config;
-use crate::serproxy::CarriageSer;
 use anyhow::Result;
 use serde::Deserialize;
 use std::fs::OpenOptions;
@@ -34,15 +33,15 @@ impl Mast {
         {
             let mut buffer = Vec::new();
             let _ = file.read_to_end(&mut buffer)?;
-            Self::uncrush(buffer).map(Into::into)
+            Self::uncrush(buffer)
         } else {
             let carriage = Carriage::unarchive(&self.path)?;
-            let _ = self.store_contents(&CarriageSer::from_carriage(&carriage));
+            let _ = self.store_contents(&carriage);
             Ok(carriage)
         }
     }
 
-    pub fn store_contents(&self, contents: &CarriageSer) -> Result<()> {
+    pub fn store_contents(&self, contents: &Carriage) -> Result<()> {
         self.crush("lager.fork", contents)
     }
 }

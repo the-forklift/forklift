@@ -1,32 +1,24 @@
 use crate::carriage::Carriage;
 use crate::fs::Mast;
-use crate::serproxy::CarriageSer;
 use anyhow::Error;
 use anyhow::Result;
-use std::fs::OpenOptions;
 use std::path::Path;
 
 pub trait Crusher: Sized {
     type Floam;
-    type FloamSer = Self::Floam;
-    fn crush<P: AsRef<Path>>(&self, file: P, contents: &Self::FloamSer) -> Result<()>;
+    fn crush<P: AsRef<Path>>(&self, file: P, contents: &Self::Floam) -> Result<()>;
     fn uncrush(contents: Vec<u8>) -> Result<Self::Floam>;
 }
 
 impl Crusher for Mast {
-    type Floam = CarriageSer;
-    type FloamSer = CarriageSer;
-    fn crush<P: AsRef<Path>>(&self, file: P, contents: &Self::FloamSer) -> Result<()> {
-        let file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(file)?;
-        ron::ser::to_writer(file, &contents)?;
-
-        Ok(())
+    type Floam = Carriage;
+    fn crush<P: AsRef<Path>>(&self, file: P, contents: &Self::Floam) -> Result<()> {
+        let contents = toml::to_string(contents)?;
+        std::fs::write(file, contents).map_err(Error::msg)
     }
     fn uncrush(contents: Vec<u8>) -> Result<Self::Floam> {
-        (ron::de::from_bytes(&contents)).map_err(Error::msg)
+        let contents = String::from_utf8(contents)?;
+        toml::from_str(&contents).map_err(Error::msg)
     }
+
 }

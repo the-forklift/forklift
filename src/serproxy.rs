@@ -1,36 +1,12 @@
 use crate::carriage::Carriage;
-use crate::store::{Crate, Kiste, Skid};
+use crate::cell::SichtCell;
+use crate::store::Crate;
 use serde::{Deserialize, Deserializer, de::Error, de::SeqAccess, de::Visitor};
 use serde::{Serialize, Serializer, ser::SerializeMap, ser::SerializeStruct};
-use std::cell::RefCell;
-use std::collections::BTreeMap;
+use sicht::SichtMap;
 use std::fmt::Formatter;
-use std::rc::Rc;
 
-pub struct CarriageSer {
-    pub map: Rc<RefCell<BTreeMap<u32, CrateSer>>>,
-}
-
-impl CarriageSer {
-    pub fn from_carriage(x: &Carriage) -> Self {
-        let map = x
-            .map
-            .borrow()
-            .iter()
-            .map(|(od, v): (&u32, &Crate)| (*od, CrateSer::from(v.clone())))
-            .collect();
-
-        Self {
-            map: Rc::new(RefCell::new(map)),
-        }
-    }
-
-    pub fn insert(&self, key: u32, value: CrateSer) {
-        self.map.borrow_mut().insert(key, value);
-    }
-}
-
-impl Serialize for CarriageSer {
+impl Serialize for Carriage {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -44,40 +20,20 @@ impl Serialize for CarriageSer {
     }
 }
 
-impl<'de> Deserialize<'de> for CarriageSer {
+impl<'de> Deserialize<'de> for Carriage {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let map = BTreeMap::deserialize(deserializer)?;
-        Ok(CarriageSer {
-            map: Rc::new(RefCell::new(map)),
+        let map = SichtMap::deserialize(deserializer)?;
+        Ok(Carriage {
+            map: SichtCell::new(map),
+            traversed: SichtCell::default(),
         })
     }
 }
 
-pub struct CrateSer {
-    krate: Kiste,
-    dependencies: Rc<RefCell<BTreeMap<u32, Skid>>>,
-}
-
-impl From<Crate> for CrateSer {
-    fn from(x: Crate) -> Self {
-        let map = x
-            .dependencies
-            .borrow()
-            .iter()
-            .map(|(k, d)| (*k, d.to_owned()))
-            .collect();
-
-        CrateSer {
-            krate: x.krate,
-            dependencies: Rc::new(RefCell::new(map)),
-        }
-    }
-}
-
-impl Serialize for CrateSer {
+impl Serialize for Crate {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -89,25 +45,42 @@ impl Serialize for CrateSer {
     }
 }
 
-impl<'de> Deserialize<'de> for CrateSer {
+impl<'de> Deserialize<'de> for Crate {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_struct("CrateSer", &["krate", "dependencies"], CrateSerVisitor)
+        deserializer.deserialize_struct("Crate", &["krate", "dependencies"], CrateVisitor)
     }
 }
 
-impl From<CarriageSer> for Carriage {
-    fn from(x: CarriageSer) -> Self {
-        todo!()
+struct CarriageVisitor;
+
+impl<'de> Visitor<'de> for CarriageVisitor {
+    type Value = Carriage;
+
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "expecting a crate to be delivered")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let map = seq
+            .next_element()?
+            .ok_or_else(|| Error::invalid_length(0, &self))?;
+
+        Ok(Carriage {
+            map,
+            traversed: SichtCell::default(),
+        })
     }
 }
+struct CrateVisitor;
 
-struct CrateSerVisitor;
-
-impl<'de> Visitor<'de> for CrateSerVisitor {
-    type Value = CrateSer;
+impl<'de> Visitor<'de> for CrateVisitor {
+    type Value = Crate;
 
     fn expecting(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         write!(formatter, "expecting a crate to be delivered")
@@ -124,9 +97,9 @@ impl<'de> Visitor<'de> for CrateSerVisitor {
             .next_element()?
             .ok_or_else(|| Error::invalid_length(0, &self))?;
 
-        Ok(CrateSer {
+        Ok(Crate {
             krate,
-            dependencies: Rc::new(RefCell::new(dependencies)),
+            dependencies: SichtCell::new(dependencies),
         })
     }
 }

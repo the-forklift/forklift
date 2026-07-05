@@ -1,5 +1,4 @@
 use crate::cell::SichtCell;
-use crate::lookup::Lookup;
 use crate::store::Skid;
 use crate::store::{Cdv, Crate, Depencil, Kiste, Lesart, UnrolledCrate};
 use anyhow::Result;
@@ -16,15 +15,13 @@ use tar::Archive;
 pub struct Carriage {
     pub map: SichtCell<SichtMap<u32, String, Crate>>,
     pub traversed: SichtCell<SichtMap<u32, String, Skid>>,
-    pub lookup: SichtCell<Lookup>,
 }
 
 impl<'a> Carriage {
-    pub fn new(map: SichtCell<SichtMap<u32, String, Crate>>, lookup: Lookup) -> Self {
+    pub fn new(map: SichtCell<SichtMap<u32, String, Crate>>) -> Self {
         Self {
             map,
             traversed: SichtCell::default(),
-            lookup: SichtCell::new(lookup),
         }
     }
 
@@ -32,7 +29,6 @@ impl<'a> Carriage {
         Self {
             map: SichtCell::new(map),
             traversed: SichtCell::default(),
-            lookup: SichtCell::default(),
         }
     }
 
@@ -115,9 +111,10 @@ impl<'a> Carriage {
     }
 
     pub fn search(&self, krate: &String) -> Option<UnrolledCrate> {
-        let krate_id = self.lookup.borrow();
-        let krate_id = krate_id.get_crate_id(krate)?;
-        let root = self.map.borrow().get(krate_id).cloned();
+        let map = self.map.borrow();
+        let krate_id = map.lookup();
+        let krate_id = krate_id.get_urbild(krate)?;
+        let root = map.get(krate_id).cloned();
         dbg!(&root);
         root.map(|r| self.generate_from_crate(r))
     }
@@ -151,8 +148,9 @@ impl<'a> Carriage {
     }
 
     pub fn generate_if_not_traversed(&self, crate_id: u32) -> Option<UnrolledCrate> {
-        let lookup = self.lookup.borrow();
-        let krate = lookup.get_crate_name(crate_id)?;
+        let map = self.map.borrow();
+        let lookup = map.lookup();
+        let krate = lookup.get(&crate_id)?;
         if self.traversed.borrow().contains_key(&crate_id) {
             Some(UnrolledCrate {
                 crate_id: crate_id.to_owned(),

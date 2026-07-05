@@ -1,12 +1,9 @@
 use crate::carriage::Carriage;
 use crate::cell::SichtCell;
-use anyhow::Result;
-use serde::de::Visitor;
-use serde::{Deserialize, Deserializer, Serialize};
-use sicht::SichtMap;
+use serde::{Deserialize, Serialize};
+use sicht::{SichtMap, map::RetrieveCokey};
 use std::collections::BTreeMap;
-use std::fmt::{Debug, Formatter};
-use std::marker::PhantomData;
+use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
 pub struct Crate {
@@ -30,13 +27,13 @@ impl Crate {
             Skid::new_with_dependency(key),
         );
     }
+}
 
-    pub fn add_dependency_with_fields(&self, dependency_id: u32, dependency_name: &str) {
-        self.dependencies.borrow_mut().insert_with_both_keys(
-            dependency_id,
-            dependency_name.to_owned(),
-            Skid::new_with_dependency(dependency_id),
-        );
+impl RetrieveCokey for Crate {
+    type Key = u32;
+    type Cokey = String;
+    fn retrieve_cokey(&self, _key: &u32) -> Option<&String> {
+        Some(&self.krate.name)
     }
 }
 
@@ -110,6 +107,14 @@ impl Skid {
     }
 }
 
+impl RetrieveCokey for Skid {
+    type Key = u32;
+    type Cokey = String;
+    fn retrieve_cokey(&self, _key: &u32) -> Option<&String> {
+        None
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct UnrolledCrate {
     pub crate_id: u32,
@@ -123,37 +128,6 @@ impl UnrolledCrate {
             name,
             dependents,
         }
-    }
-}
-
-impl<'de> Deserialize<'de> for Crate {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct CrateVisitor<'a> {
-            krate: PhantomData<&'a ()>,
-            dependencies: PhantomData<&'a ()>,
-        }
-
-        impl CrateVisitor<'_> {
-            fn new() -> Self {
-                Self {
-                    krate: PhantomData,
-                    dependencies: PhantomData,
-                }
-            }
-        }
-
-        impl Visitor<'_> for CrateVisitor<'_> {
-            type Value = Crate;
-
-            fn expecting(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
-                write!(formatter, "Oder left or right are malformed")
-            }
-        }
-
-        deserializer.deserialize_struct("Crate", &["krate", "dependencies"], CrateVisitor::new())
     }
 }
 
