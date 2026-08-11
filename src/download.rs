@@ -1,8 +1,8 @@
 use crate::carriage::Carriage;
+use crate::error::Error;
 use crate::fs::Mast;
 use crate::joystick::Query;
 use crate::store::UnrolledCrate;
-use anyhow::Result;
 
 pub struct Ignition {
     query: Query,
@@ -15,13 +15,13 @@ pub struct Engine {
 }
 
 impl Ignition {
-    pub fn init(query: Query) -> Result<Engine> {
+    pub fn init(query: Query) -> Result<Engine, Error> {
         let mut mast = Mast::path("db-dump.tar.gz");
         let carriage = mast.load()?;
         Ok(Engine::new(query, carriage))
     }
 
-    pub fn init_with_config(query: Query, config: Config) -> Result<Engine> {
+    pub fn init_with_config(query: Query, config: Config) -> Result<Engine, Error> {
         let carriage = Mast::path("db-dump.tar.gz").config(config).load()?;
         Ok(Engine::new(query, carriage))
     }
@@ -32,11 +32,11 @@ impl Engine {
         Engine { query, carriage }
     }
 
-    pub fn run(&mut self) -> Result<Option<UnrolledCrate>> {
+    pub fn run(&mut self) -> Result<Option<UnrolledCrate>, Error> {
         self.query.apply_to_carriage(&mut self.carriage)
     }
 
-    pub fn process_output(&self) -> Result<()> {
+    pub fn process_output(&self) -> Result<(), Error> {
         todo!("next stage")
     }
 }

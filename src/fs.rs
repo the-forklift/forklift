@@ -1,7 +1,7 @@
 use crate::carriage::Carriage;
 use crate::crusher::Crusher;
 use crate::download::Config;
-use anyhow::Result;
+use crate::error::Error;
 use serde::Deserialize;
 use std::fs::OpenOptions;
 use std::io::Read;
@@ -27,21 +27,21 @@ impl Mast {
         self
     }
 
-    pub fn load(&mut self) -> Result<Carriage> {
+    pub fn load(&mut self) -> Result<Carriage, Error> {
         if !self.config.fresh
             && let Ok(mut file) = OpenOptions::new().read(true).open("lager.fork")
         {
             let mut buffer = Vec::new();
-            let _ = file.read_to_end(&mut buffer)?;
+            let _ = file.read_to_end(&mut buffer).map_err(|_| Error {})?;
             Self::uncrush(buffer)
         } else {
-            let carriage = Carriage::unarchive(&self.path)?;
+            let carriage = Carriage::unarchive(&self.path).map_err(|_| Error {})?;
             let _ = self.store_contents(&carriage);
             Ok(carriage)
         }
     }
 
-    pub fn store_contents(&self, contents: &Carriage) -> Result<()> {
+    pub fn store_contents(&self, contents: &Carriage) -> Result<(), Error> {
         self.crush("lager.fork", contents)
     }
 }

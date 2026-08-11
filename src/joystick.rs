@@ -1,10 +1,10 @@
 use crate::carriage::Carriage;
 use crate::conditions::WhereClause;
+use crate::error::Error;
 use crate::store::UnrolledCrate;
-use anyhow::Result;
 use semver::VersionReq;
 use std::collections::HashMap;
-use std::{error::Error, fmt::Display};
+use std::fmt::Display;
 
 #[derive(Clone, Debug, Default)]
 pub struct Query {
@@ -16,7 +16,7 @@ impl Query {
     pub fn apply_to_carriage<'a>(
         &'a self,
         carriage: &'a mut Carriage,
-    ) -> Result<Option<UnrolledCrate>> {
+    ) -> Result<Option<UnrolledCrate>, Error> {
         match self.conditions {
             None => Ok(carriage.search(&self.package)),
             _ => todo!(),
@@ -52,7 +52,6 @@ impl<'a> QueryAccumulator<'a> {
             let col = core::mem::take(&mut collector);
             chars.insert(button, Panel::TokenValue(col));
         }
-
         QueryAccumulator(chars)
     }
 
@@ -91,11 +90,17 @@ impl TryFrom<QueryAccumulator<'_>> for Query {
 #[derive(Clone, Debug)]
 pub struct InvalidQueryError {}
 
-impl Error for InvalidQueryError {}
+impl std::error::Error for InvalidQueryError {}
 
 impl Display for InvalidQueryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "InvalidQueryError")
+    }
+}
+
+impl From<InvalidQueryError> for Error {
+    fn from(_: InvalidQueryError) -> Error {
+        Error {}
     }
 }
 

@@ -54,29 +54,6 @@ impl<'de> Deserialize<'de> for Crate {
     }
 }
 
-struct CarriageVisitor;
-
-impl<'de> Visitor<'de> for CarriageVisitor {
-    type Value = Carriage;
-
-    fn expecting(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "expecting a crate to be delivered")
-    }
-
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let map = seq
-            .next_element()?
-            .ok_or_else(|| Error::invalid_length(0, &self))?;
-
-        Ok(Carriage {
-            map,
-            traversed: SichtCell::default(),
-        })
-    }
-}
 struct CrateVisitor;
 
 impl<'de> Visitor<'de> for CrateVisitor {

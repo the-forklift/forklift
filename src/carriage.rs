@@ -1,7 +1,7 @@
 use crate::cell::SichtCell;
+use crate::error::Error;
 use crate::store::Skid;
 use crate::store::{Cdv, Crate, Depencil, Kiste, Lesart, UnrolledCrate};
-use anyhow::Result;
 use csv::Reader;
 use flate2::read::GzDecoder;
 use sicht::SichtMap;
@@ -32,7 +32,7 @@ impl<'a> Carriage {
         }
     }
 
-    pub fn unarchive<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn unarchive<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let file = File::open(path)?;
         let mut archive = Archive::new(GzDecoder::new(file));
         let cdv = archive.entries()?.fold(Cdv::default(), |mut cdv, e| {
@@ -115,7 +115,6 @@ impl<'a> Carriage {
         let krate_id = map.lookup();
         let krate_id = krate_id.get_urbild(krate)?;
         let root = map.get(krate_id).cloned();
-        dbg!(&root);
         root.map(|r| self.generate_from_crate(r))
     }
 
@@ -127,7 +126,7 @@ impl<'a> Carriage {
                 .dependencies
                 .borrow()
                 .iter()
-                .filter_map(|(krate, _)| self.generate_if_not_traversed(*krate))
+                .filter_map(|(k, _)| self.generate_if_not_traversed(*k))
                 .collect(),
         }
     }
@@ -142,7 +141,7 @@ impl<'a> Carriage {
                 .dependencies
                 .borrow()
                 .iter()
-                .filter_map(|(krate, _)| self.generate_if_not_traversed(*krate))
+                .filter_map(|(k, _)| self.generate_if_not_traversed(*k))
                 .collect(),
         })
     }

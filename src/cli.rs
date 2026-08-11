@@ -1,6 +1,6 @@
 use crate::download::{Config, Ignition};
+use crate::error::Error;
 use crate::joystick::{Query, QueryAccumulator};
-use anyhow::Result;
 use clap::Parser;
 
 #[derive(Debug, Parser)]
@@ -18,7 +18,7 @@ struct Args {
     fresh: bool,
 }
 
-pub fn init() -> Result<()> {
+pub fn init() -> Result<(), Error> {
     let args = Args::parse();
     match args {
         Args {
@@ -47,7 +47,6 @@ pub fn init() -> Result<()> {
             let accumulator: Query = QueryAccumulator::from_input(&q).try_into()?;
             let mut engine = Ignition::init_with_config(accumulator, Config::fresh())?;
             let results = engine.run()?;
-            dbg!(&results);
             engine.process_output()
         }
 
